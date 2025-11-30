@@ -14,6 +14,7 @@ class Printer(Base):
     ip_address: Mapped[str] = mapped_column(String(45))
     access_code: Mapped[str] = mapped_column(String(20))
     model: Mapped[str | None] = mapped_column(String(50))
+    nozzle_count: Mapped[int] = mapped_column(default=1)  # 1 or 2, auto-detected from MQTT
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     auto_archive: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -30,7 +31,11 @@ class Printer(Base):
     smart_plug: Mapped["SmartPlug | None"] = relationship(
         back_populates="printer", uselist=False
     )
+    notification_providers: Mapped[list["NotificationProvider"]] = relationship(
+        back_populates="printer"
+    )
 
 
 from backend.app.models.archive import PrintArchive  # noqa: E402
 from backend.app.models.smart_plug import SmartPlug  # noqa: E402
+from backend.app.models.notification import NotificationProvider  # noqa: E402

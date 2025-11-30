@@ -73,6 +73,21 @@ v∆v
   - Multi-color support with color swatches
 - **Failure Analysis** - Document failed prints with notes and photos
 - **Project Page Editor** - View and edit embedded MakerWorld project pages with images, descriptions, and designer info
+- **K-Profiles (Pressure Advance)** - Manage pressure advance settings directly on your printers
+  - View, edit, add, and delete K-profiles per printer
+  - Filter by nozzle size (0.2, 0.4, 0.6, 0.8mm) and flow type (High Flow, Standard)
+  - Search by profile name or filament
+  - Dual-nozzle support for H2 series (auto-detected from MQTT)
+  - Left/Right extruder column layout for dual-nozzle printers
+- **Push Notifications** - Get notified about print events via multiple channels:
+  - WhatsApp (via CallMeBot)
+  - ntfy (self-hosted or ntfy.sh)
+  - Pushover
+  - Telegram
+  - Email (SMTP with TLS/SSL/plain options)
+  - Configurable event triggers (start, complete, failed, stopped, progress milestones)
+  - Quiet hours to suppress notifications during sleep
+  - Per-printer filtering
 - **Cloud Profiles Sync** - Access your Bambu Cloud slicer presets
 - **File Manager** - Browse and manage files on your printer's SD card
 - **Re-print** - Send archived prints back to any connected printer
@@ -83,7 +98,7 @@ v∆v
 
 <!-- Add your screenshots here -->
 <p align="center">
-  <img src="docs/screenshots/dashboard.png" alt="Dashboard" width="800">
+  <img src="docs/screenshots/statistics.png" alt="Statustics" width="800">
   <br><em>Customizable Dashboard with drag-and-drop widgets</em>
 </p>
 
@@ -100,6 +115,11 @@ v∆v
 <p align="center">
   <img src="docs/screenshots/queue.png" alt="Queue" width="800">
   <br><em>Queueing and scheduling</em>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/k_profiles.png" alt="k Profiles" width="800">
+  <br><em>k Profiles</em>
 </p>
 
 <p align="center">
@@ -328,6 +348,36 @@ To connect Bambusy to your printer, you need to enable LAN Mode:
 
 The printer should connect automatically and show real-time status.
 
+### Environment Variables
+
+Bambusy can be configured using environment variables or a `.env` file in the project root. Copy `.env.example` to `.env` and adjust as needed:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEBUG` | `false` | Enable debug mode (verbose logging, SQL queries) |
+| `LOG_LEVEL` | `INFO` | Log level when DEBUG=false (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `LOG_TO_FILE` | `true` | Write logs to `logs/bambutrack.log` |
+
+**Production (default):**
+- INFO level logging
+- SQLAlchemy and HTTP library noise suppressed
+- Logs written to `logs/bambutrack.log` (5MB rotating, 3 backups)
+
+**Development (`DEBUG=true`):**
+- DEBUG level logging (verbose)
+- All SQL queries logged
+- Useful for troubleshooting printer connections
+
+Example `.env` for development:
+```bash
+DEBUG=true
+LOG_TO_FILE=true
+```
+
 ## Usage
 
 ### Keyboard Shortcuts
@@ -400,6 +450,52 @@ When a scheduled print is ready to start:
 4. Click "Edit" to modify the project page metadata
 5. Changes are saved directly to the 3MF file
 
+### K-Profiles (Pressure Advance)
+
+K-profiles store pressure advance (Linear Advance) settings for different filament and nozzle combinations. Bambusy lets you view and manage these settings directly on your printers.
+
+#### Viewing K-Profiles
+
+1. Go to **Settings** > **K-Profiles**
+2. Select a connected printer from the dropdown
+3. Choose a nozzle size (0.2, 0.4, 0.6, or 0.8mm)
+4. Profiles are displayed with:
+   - K-value (pressure advance factor)
+   - Profile name and filament
+   - Flow type (HF = High Flow, S = Standard)
+
+#### Dual-Nozzle Printers (H2 Series)
+
+For dual-nozzle printers (H2D, H2C, H2S), Bambusy automatically detects the nozzle configuration and displays:
+- **Left/Right columns** showing profiles for each extruder
+- **Extruder filter** to show profiles for one extruder only
+- **Extruder selector** when adding new profiles
+
+The nozzle count is auto-detected from MQTT temperature data when the printer connects.
+
+#### Editing K-Profiles
+
+1. Click on any profile card to open the edit modal
+2. Modify the K-value (typical ranges: 0.01-0.06 for PLA, 0.02-0.10 for PETG)
+3. Click **Save** to update the profile on the printer
+4. Click the trash icon to delete a profile (with confirmation)
+
+#### Adding K-Profiles
+
+1. Click **Add Profile** in the header
+2. Select a filament from the dropdown (populated from existing profiles on the printer)
+3. Choose flow type (High Flow or Standard) and nozzle size
+4. For dual-nozzle printers, select Left or Right extruder
+5. Enter the K-value and click **Save**
+
+**Note:** Filaments must first be calibrated in Bambu Studio to appear in the dropdown. Bambusy reads the filament list from existing K-profiles on the printer.
+
+#### Filtering and Search
+
+- **Search**: Type to filter by profile name or filament ID
+- **Extruder filter** (dual-nozzle only): Show All, Left Only, or Right Only
+- **Flow type filter**: Show All, HF Only, or S Only
+
 ### Smart Plug Integration
 
 Bambusy supports Tasmota-based smart plugs for automated power control. This is useful for:
@@ -445,6 +541,91 @@ Each plug card shows:
 - Current status (ON/OFF/Offline)
 - On/Off buttons for manual control
 - Expandable settings panel
+
+### Push Notifications
+
+Bambusy can send push notifications when print events occur. Notifications are useful for monitoring prints remotely without checking the app constantly.
+
+#### Supported Providers
+
+| Provider | Description | Setup Required |
+|----------|-------------|----------------|
+| **WhatsApp** | Via [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) | Free API key from CallMeBot |
+| **ntfy** | Self-hosted or [ntfy.sh](https://ntfy.sh) | Just a topic name (no account needed for public server) |
+| **Pushover** | [Pushover](https://pushover.net/) push notifications | Pushover account + app token |
+| **Telegram** | Via Telegram Bot | Bot token from @BotFather |
+| **Email** | SMTP email | SMTP server credentials |
+
+#### Adding a Notification Provider
+
+1. Go to **Settings** > **Notifications**
+2. Click **Add Provider**
+3. Select a provider type and enter the required configuration
+4. Click **Send Test** to verify the configuration works
+5. Configure which events should trigger notifications
+6. Click **Add**
+
+#### Event Triggers
+
+Configure which events send notifications:
+
+| Event | Description |
+|-------|-------------|
+| **Print Started** | When a print job begins |
+| **Print Completed** | When a print finishes successfully |
+| **Print Failed** | When a print fails or errors out |
+| **Print Stopped** | When you manually stop/cancel a print |
+| **Progress Milestones** | At 25%, 50%, and 75% progress |
+| **Printer Offline** | When a printer disconnects |
+| **Printer Error** | When HMS errors are detected |
+| **Low Filament** | When filament is running low |
+
+#### Quiet Hours
+
+Enable quiet hours to suppress notifications during sleep or work hours:
+
+1. Enable **Quiet Hours** toggle
+2. Set start time (e.g., 22:00)
+3. Set end time (e.g., 07:00)
+
+Notifications during quiet hours are silently skipped.
+
+#### Per-Printer Filtering
+
+By default, notifications are sent for all printers. To limit notifications to a specific printer:
+
+1. Open the notification provider settings
+2. Select a printer from the **Printer** dropdown
+3. Only events from that printer will trigger notifications
+
+#### Provider Setup Guides
+
+**WhatsApp (CallMeBot):**
+1. Add CallMeBot to your contacts: +34 644 51 95 23
+2. Send "I allow callmebot to send me messages" via WhatsApp
+3. You'll receive an API key
+4. Enter your phone number (with country code) and API key in Bambusy
+
+**ntfy:**
+1. Choose a unique topic name (e.g., `my-printer-alerts-xyz123`)
+2. Subscribe to it on your phone using the ntfy app or web interface
+3. Enter the topic name in Bambusy (server defaults to ntfy.sh)
+
+**Pushover:**
+1. Create an account at [pushover.net](https://pushover.net/)
+2. Create an application to get an API token
+3. Enter your user key and app token in Bambusy
+
+**Telegram:**
+1. Message @BotFather on Telegram to create a bot
+2. Get your chat ID by messaging @userinfobot
+3. Enter the bot token and chat ID in Bambusy
+
+**Email:**
+1. Configure your SMTP server settings
+2. For Gmail, use an App Password (not your regular password)
+3. Choose security mode: STARTTLS (port 587), SSL (port 465), or None (port 25)
+4. Enable/disable authentication as needed
 
 ## Tech Stack
 
@@ -569,6 +750,34 @@ Common causes:
 - **File upload failed** - Check FTP connectivity to the printer
 - **HMS errors** - Check the printer for any health system errors that prevent printing
 
+### Timelapse not attaching automatically
+
+**The Problem:**
+When printers run in **LAN-only mode** (disconnected from Bambu Cloud), they cannot sync time via NTP. This causes the printer's internal clock to drift significantly (sometimes days or weeks off). Bambusy matches timelapses by comparing the print completion time with the timelapse file's modification time - when the printer's clock is wrong, this matching fails.
+
+**Symptoms:**
+- "Scan for Timelapse" shows "No matching timelapse found"
+- Timelapse files exist on the printer but don't auto-attach
+- Printer shows incorrect date/time in its settings
+
+**Workaround - Manual Selection:**
+When automatic matching fails, Bambusy now offers manual timelapse selection:
+
+1. Right-click the archive and select **"Scan for Timelapse"**
+2. If no match is found, a dialog appears showing all available timelapse files on the printer
+3. Files are sorted by date (newest first) with size information
+4. Select the correct timelapse and click to attach it
+
+**Permanent Fix:**
+To fix the printer's clock:
+1. Temporarily connect the printer to the internet (via router or mobile hotspot)
+2. Wait for the printer to sync time via NTP
+3. Return to LAN-only mode - the clock should remain accurate until the next power cycle
+
+**Note:** Some users report the clock resets after power cycling. In this case, you'll need to either:
+- Periodically connect to the internet to sync time
+- Use the manual timelapse selection feature
+
 ## Known Issues / Roadmap
 
 ### Beta Limitations
@@ -588,8 +797,9 @@ Common causes:
 - [x] Energy monitoring and statistics
 - [x] Print scheduling and queuing
 - [x] Automatic finish photo capture
+- [x] K-Profiles management (pressure advance)
+- [x] Push notifications (WhatsApp, ntfy, Pushover, Telegram, Email)
 - [ ] Maintenance tracker
-- [ ] Notifications (email, push)
 - [ ] Mobile-optimized UI
 
 ## License

@@ -28,6 +28,7 @@ export interface Printer {
   ip_address: string;
   access_code: string;
   model: string | null;
+  nozzle_count: number;  // 1 or 2, auto-detected from MQTT
   is_active: boolean;
   auto_archive: boolean;
   created_at: string;
@@ -150,6 +151,7 @@ export interface AppSettings {
   default_filament_cost: number;
   currency: string;
   energy_cost_per_kwh: number;
+  energy_tracking_mode: 'print' | 'total';
 }
 
 export type AppSettingsUpdate = Partial<AppSettings>;
@@ -205,6 +207,7 @@ export interface SmartPlug {
   password: string | null;
   last_state: string | null;
   last_checked: string | null;
+  auto_off_executed: boolean;  // True when auto-off was triggered after print
   created_at: string;
   updated_at: string;
 }
@@ -310,6 +313,171 @@ export interface MQTTLogsResponse {
   logs: MQTTLogEntry[];
 }
 
+// K-Profile types
+export interface KProfile {
+  slot_id: number;
+  extruder_id: number;
+  nozzle_id: string;
+  nozzle_diameter: string;
+  filament_id: string;
+  name: string;
+  k_value: string;
+  n_coef: string;
+  ams_id: number;
+  tray_id: number;
+  setting_id: string | null;
+}
+
+export interface KProfileCreate {
+  slot_id?: number;  // Storage slot, 0 for new profiles
+  extruder_id?: number;
+  nozzle_id: string;
+  nozzle_diameter: string;
+  filament_id: string;
+  name: string;
+  k_value: string;
+  n_coef?: string;
+  ams_id?: number;
+  tray_id?: number;
+  setting_id?: string | null;
+}
+
+export interface KProfileDelete {
+  slot_id: number;  // cali_idx - calibration index to delete
+  extruder_id: number;
+  nozzle_id: string;  // e.g., "HH00-0.4"
+  nozzle_diameter: string;  // e.g., "0.4"
+  filament_id: string;  // Bambu filament identifier
+}
+
+export interface KProfilesResponse {
+  profiles: KProfile[];
+  nozzle_diameter: string;
+}
+
+// Notification Provider types
+export type ProviderType = 'callmebot' | 'ntfy' | 'pushover' | 'telegram' | 'email';
+
+export interface NotificationProvider {
+  id: number;
+  name: string;
+  provider_type: ProviderType;
+  enabled: boolean;
+  config: Record<string, unknown>;
+  // Print lifecycle events
+  on_print_start: boolean;
+  on_print_complete: boolean;
+  on_print_failed: boolean;
+  on_print_stopped: boolean;
+  on_print_progress: boolean;
+  // Printer status events
+  on_printer_offline: boolean;
+  on_printer_error: boolean;
+  on_filament_low: boolean;
+  // Quiet hours
+  quiet_hours_enabled: boolean;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  // Printer filter
+  printer_id: number | null;
+  // Status tracking
+  last_success: string | null;
+  last_error: string | null;
+  last_error_at: string | null;
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationProviderCreate {
+  name: string;
+  provider_type: ProviderType;
+  enabled?: boolean;
+  config: Record<string, unknown>;
+  // Print lifecycle events
+  on_print_start?: boolean;
+  on_print_complete?: boolean;
+  on_print_failed?: boolean;
+  on_print_stopped?: boolean;
+  on_print_progress?: boolean;
+  // Printer status events
+  on_printer_offline?: boolean;
+  on_printer_error?: boolean;
+  on_filament_low?: boolean;
+  // Quiet hours
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+  // Printer filter
+  printer_id?: number | null;
+}
+
+export interface NotificationProviderUpdate {
+  name?: string;
+  provider_type?: ProviderType;
+  enabled?: boolean;
+  config?: Record<string, unknown>;
+  // Print lifecycle events
+  on_print_start?: boolean;
+  on_print_complete?: boolean;
+  on_print_failed?: boolean;
+  on_print_stopped?: boolean;
+  on_print_progress?: boolean;
+  // Printer status events
+  on_printer_offline?: boolean;
+  on_printer_error?: boolean;
+  on_filament_low?: boolean;
+  // Quiet hours
+  quiet_hours_enabled?: boolean;
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+  // Printer filter
+  printer_id?: number | null;
+}
+
+export interface NotificationTestRequest {
+  provider_type: ProviderType;
+  config: Record<string, unknown>;
+}
+
+export interface NotificationTestResponse {
+  success: boolean;
+  message: string;
+}
+
+// Provider-specific config types for reference
+export interface CallMeBotConfig {
+  phone: string;
+  apikey: string;
+}
+
+export interface NtfyConfig {
+  server?: string;
+  topic: string;
+  auth_token?: string | null;
+}
+
+export interface PushoverConfig {
+  user_key: string;
+  app_token: string;
+  priority?: number;
+}
+
+export interface TelegramConfig {
+  bot_token: string;
+  chat_id: string;
+}
+
+export interface EmailConfig {
+  smtp_server: string;
+  smtp_port?: number;
+  username: string;
+  password: string;
+  from_email: string;
+  to_email: string;
+  use_tls?: boolean;
+}
+
 // API functions
 export const api = {
   // Printers
@@ -412,9 +580,19 @@ export const api = {
   getArchiveGcode: (id: number) => `${API_BASE}/archives/${id}/gcode`,
   getArchiveTimelapse: (id: number) => `${API_BASE}/archives/${id}/timelapse`,
   scanArchiveTimelapse: (id: number) =>
-    request<{ status: string; message: string; filename?: string }>(`/archives/${id}/timelapse/scan`, {
+    request<{
+      status: string;
+      message: string;
+      filename?: string;
+      available_files?: Array<{ name: string; path: string; size: number; mtime: string | null }>;
+    }>(`/archives/${id}/timelapse/scan`, {
       method: 'POST',
     }),
+  selectArchiveTimelapse: (id: number, filename: string) =>
+    request<{ status: string; message: string; filename: string }>(
+      `/archives/${id}/timelapse/select?filename=${encodeURIComponent(filename)}`,
+      { method: 'POST' }
+    ),
   uploadArchiveTimelapse: async (archiveId: number, file: File): Promise<{ status: string; filename: string }> => {
     const formData = new FormData();
     formData.append('file', file);
@@ -631,4 +809,41 @@ export const api = {
     request<{ message: string }>(`/queue/${id}/cancel`, { method: 'POST' }),
   stopQueueItem: (id: number) =>
     request<{ message: string }>(`/queue/${id}/stop`, { method: 'POST' }),
+
+  // K-Profiles
+  getKProfiles: (printerId: number, nozzleDiameter = '0.4') =>
+    request<KProfilesResponse>(`/printers/${printerId}/kprofiles/?nozzle_diameter=${nozzleDiameter}`),
+  setKProfile: (printerId: number, profile: KProfileCreate) =>
+    request<{ success: boolean; message: string }>(`/printers/${printerId}/kprofiles/`, {
+      method: 'POST',
+      body: JSON.stringify(profile),
+    }),
+  deleteKProfile: (printerId: number, profile: KProfileDelete) =>
+    request<{ success: boolean; message: string }>(`/printers/${printerId}/kprofiles/`, {
+      method: 'DELETE',
+      body: JSON.stringify(profile),
+    }),
+
+  // Notification Providers
+  getNotificationProviders: () => request<NotificationProvider[]>('/notifications/'),
+  getNotificationProvider: (id: number) => request<NotificationProvider>(`/notifications/${id}`),
+  createNotificationProvider: (data: NotificationProviderCreate) =>
+    request<NotificationProvider>('/notifications/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateNotificationProvider: (id: number, data: NotificationProviderUpdate) =>
+    request<NotificationProvider>(`/notifications/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  deleteNotificationProvider: (id: number) =>
+    request<{ message: string }>(`/notifications/${id}`, { method: 'DELETE' }),
+  testNotificationProvider: (id: number) =>
+    request<NotificationTestResponse>(`/notifications/${id}/test`, { method: 'POST' }),
+  testNotificationConfig: (data: NotificationTestRequest) =>
+    request<NotificationTestResponse>('/notifications/test-config', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };

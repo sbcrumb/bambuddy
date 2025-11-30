@@ -1,29 +1,46 @@
+import { useEffect } from 'react';
 import { X, Keyboard } from 'lucide-react';
 import { Card, CardContent } from './Card';
 
-interface KeyboardShortcutsModalProps {
-  onClose: () => void;
+interface NavItem {
+  id: string;
+  to: string;
+  label: string;
 }
 
-const shortcuts = [
-  { category: 'Navigation', items: [
-    { keys: ['1'], description: 'Go to Printers' },
-    { keys: ['2'], description: 'Go to Archives' },
-    { keys: ['3'], description: 'Go to Queue' },
-    { keys: ['4'], description: 'Go to Statistics' },
-    { keys: ['5'], description: 'Go to Cloud Profiles' },
-    { keys: ['6'], description: 'Go to Settings' },
-  ]},
-  { category: 'Archives', items: [
-    { keys: ['/'], description: 'Focus search' },
-    { keys: ['U'], description: 'Open upload modal' },
-    { keys: ['Esc'], description: 'Clear selection / blur input' },
-    { keys: ['Right-click'], description: 'Context menu on cards' },
-  ]},
-  { category: 'General', items: [
-    { keys: ['?'], description: 'Show this help' },
-  ]},
-];
+interface KeyboardShortcutsModalProps {
+  onClose: () => void;
+  navItems?: NavItem[];
+}
+
+function getShortcuts(navItems?: NavItem[]) {
+  const navShortcuts = navItems
+    ? navItems.map((item, index) => ({
+        keys: [String(index + 1)],
+        description: `Go to ${item.label}`,
+      }))
+    : [
+        { keys: ['1'], description: 'Go to Printers' },
+        { keys: ['2'], description: 'Go to Archives' },
+        { keys: ['3'], description: 'Go to Queue' },
+        { keys: ['4'], description: 'Go to Statistics' },
+        { keys: ['5'], description: 'Go to Cloud Profiles' },
+        { keys: ['6'], description: 'Go to Settings' },
+      ];
+
+  return [
+    { category: 'Navigation', items: navShortcuts },
+    { category: 'Archives', items: [
+      { keys: ['/'], description: 'Focus search' },
+      { keys: ['U'], description: 'Open upload modal' },
+      { keys: ['Esc'], description: 'Clear selection / blur input' },
+      { keys: ['Right-click'], description: 'Context menu on cards' },
+    ]},
+    { category: 'General', items: [
+      { keys: ['?'], description: 'Show this help' },
+    ]},
+  ];
+}
 
 function KeyBadge({ children }: { children: string }) {
   return (
@@ -33,7 +50,18 @@ function KeyBadge({ children }: { children: string }) {
   );
 }
 
-export function KeyboardShortcutsModal({ onClose }: KeyboardShortcutsModalProps) {
+export function KeyboardShortcutsModal({ onClose, navItems }: KeyboardShortcutsModalProps) {
+  const shortcuts = getShortcuts(navItems);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <Card className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
