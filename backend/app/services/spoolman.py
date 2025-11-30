@@ -586,12 +586,26 @@ class SpoolmanClient:
                 location=location,
             )
 
-        # Spool not found in Spoolman - log warning but don't create new
-        logger.warning(
-            f"Bambu Lab spool with tray_uuid {tray.tray_uuid} not found in Spoolman. "
-            f"Add this spool to Spoolman first to enable syncing."
+        # Spool not found - auto-create it
+        logger.info(
+            f"Creating new spool in Spoolman for {tray.tray_sub_brands} "
+            f"(tray_uuid: {tray.tray_uuid[:16]}...)"
         )
-        return None
+
+        # First find or create the filament type
+        filament = await self._find_or_create_filament(tray)
+        if not filament:
+            logger.error(f"Failed to find or create filament for {tray.tray_sub_brands}")
+            return None
+
+        # Create the spool with tray_uuid stored as "tag" in extra field
+        return await self.create_spool(
+            filament_id=filament["id"],
+            remaining_weight=remaining,
+            location=location,
+            comment=f"Auto-created from {printer_name} AMS",
+            extra={"tag": tray.tray_uuid},
+        )
 
     async def _find_or_create_filament(self, tray: AMSTray) -> dict | None:
         """Find existing filament or create new one.

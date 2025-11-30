@@ -69,7 +69,7 @@ from backend.app.services.bambu_ftp import download_file_async
 from backend.app.services.smart_plug_manager import smart_plug_manager
 from backend.app.services.tasmota import tasmota_service
 from backend.app.models.smart_plug import SmartPlug
-from backend.app.services.spoolman import get_spoolman_client, init_spoolman_client
+from backend.app.services.spoolman import get_spoolman_client, init_spoolman_client, close_spoolman_client
 
 
 # Track active prints: {(printer_id, filename): archive_id}
@@ -933,6 +933,22 @@ async def lifespan(app: FastAPI):
     async with async_session() as db:
         await init_printer_connections(db)
 
+    # Auto-connect to Spoolman if enabled
+    async with async_session() as db:
+        from backend.app.api.routes.settings import get_setting
+        spoolman_enabled = await get_setting(db, "spoolman_enabled")
+        spoolman_url = await get_setting(db, "spoolman_url")
+
+        if spoolman_enabled and spoolman_enabled.lower() == "true" and spoolman_url:
+            try:
+                client = await init_spoolman_client(spoolman_url)
+                if await client.health_check():
+                    logging.info(f"Auto-connected to Spoolman at {spoolman_url}")
+                else:
+                    logging.warning(f"Spoolman at {spoolman_url} is not reachable")
+            except Exception as e:
+                logging.warning(f"Failed to auto-connect to Spoolman: {e}")
+
     # Start the print scheduler
     asyncio.create_task(print_scheduler.run())
 
@@ -941,6 +957,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     print_scheduler.stop()
     printer_manager.disconnect_all()
+    await close_spoolman_client()
 
 
 app = FastAPI(
