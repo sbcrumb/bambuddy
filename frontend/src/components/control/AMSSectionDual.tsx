@@ -39,6 +39,7 @@ interface AMSPanelContentProps {
   onSelectTray: (trayId: number | null) => void;
 }
 
+// Panel content - NO wiring, just slots and info
 function AMSPanelContent({
   units,
   side,
@@ -52,12 +53,12 @@ function AMSPanelContent({
   const slotPrefix = side === 'left' ? 'A' : 'B';
 
   return (
-    <div className="flex-1 min-w-0 overflow-visible">
+    <div className="flex-1 min-w-0">
       <div className="text-center text-[11px] font-semibold text-bambu-gray uppercase mb-2">
         {side === 'left' ? 'Left Nozzle' : 'Right Nozzle'}
       </div>
 
-      {/* AMS Tab Selectors - only show connected units */}
+      {/* AMS Tab Selectors */}
       <div className="flex gap-1.5 mb-2.5 p-1.5 bg-bambu-dark/50 rounded-lg w-fit">
         {units.map((unit, index) => (
           <button
@@ -86,7 +87,7 @@ function AMSPanelContent({
 
       {/* AMS Content */}
       {selectedUnit && (
-        <div className="bg-bambu-dark-secondary rounded-[10px] p-2.5 pb-0 overflow-visible">
+        <div className="bg-bambu-dark-secondary rounded-[10px] p-2.5">
           {/* AMS Header - Humidity & Temp */}
           <div className="flex items-center gap-2.5 text-xs text-bambu-gray mb-2">
             {selectedUnit.humidity !== null && (
@@ -117,8 +118,8 @@ function AMSPanelContent({
             ))}
           </div>
 
-          {/* AMS Slots with integrated wiring */}
-          <div className="flex justify-center gap-1.5 mb-0">
+          {/* AMS Slots - NO wiring here */}
+          <div className="flex justify-center gap-1.5">
             {selectedUnit.tray.map((tray) => {
               const globalTrayId = selectedUnit.id * 4 + tray.id;
               const isSelected = selectedTray === globalTrayId;
@@ -126,66 +127,41 @@ function AMSPanelContent({
               const isLight = isLightColor(tray.tray_color);
 
               return (
-                <div key={tray.id} className="flex flex-col items-center">
-                  <button
-                    onClick={() => !isEmpty && onSelectTray(isSelected ? null : globalTrayId)}
-                    disabled={isEmpty || isPrinting}
-                    className={`w-12 h-[70px] rounded-md border-2 overflow-hidden transition-all bg-bambu-dark ${
-                      isSelected
-                        ? 'border-[#d4a84b]'
-                        : 'border-bambu-dark-tertiary hover:border-bambu-gray'
-                    } ${isEmpty ? 'opacity-50' : ''} disabled:cursor-not-allowed`}
+                <button
+                  key={tray.id}
+                  onClick={() => !isEmpty && onSelectTray(isSelected ? null : globalTrayId)}
+                  disabled={isEmpty || isPrinting}
+                  className={`w-12 h-[70px] rounded-md border-2 overflow-hidden transition-all bg-bambu-dark ${
+                    isSelected
+                      ? 'border-[#d4a84b]'
+                      : 'border-bambu-dark-tertiary hover:border-bambu-gray'
+                  } ${isEmpty ? 'opacity-50' : ''} disabled:cursor-not-allowed`}
+                >
+                  <div
+                    className="w-full h-full flex flex-col items-center justify-end pb-[5px]"
+                    style={{
+                      backgroundColor: isEmpty ? undefined : hexToRgb(tray.tray_color),
+                    }}
                   >
-                    <div
-                      className="w-full h-full flex flex-col items-center justify-end pb-[5px]"
-                      style={{
-                        backgroundColor: isEmpty ? undefined : hexToRgb(tray.tray_color),
-                      }}
+                    <span
+                      className={`text-[11px] font-semibold mb-1 ${
+                        isLight ? 'text-gray-800' : 'text-white'
+                      } ${isLight ? '' : 'drop-shadow-sm'}`}
                     >
-                      <span
-                        className={`text-[11px] font-semibold mb-1 ${
-                          isLight ? 'text-gray-800' : 'text-white'
-                        } ${isLight ? '' : 'drop-shadow-sm'}`}
-                      >
-                        {isEmpty ? '--' : tray.tray_type}
-                      </span>
-                      {!isEmpty && (
-                        <img
-                          src="/icons/eye.svg"
-                          alt=""
-                          className={`w-3.5 h-3.5 ${isLight ? '' : 'invert'}`}
-                          style={{ opacity: 0.8 }}
-                        />
-                      )}
-                    </div>
-                  </button>
-                  {/* Vertical wire from slot center down */}
-                  <div className="w-[2px] h-[14px] bg-[#909090]" />
-                </div>
+                      {isEmpty ? '--' : tray.tray_type}
+                    </span>
+                    {!isEmpty && (
+                      <img
+                        src="/icons/eye.svg"
+                        alt=""
+                        className={`w-3.5 h-3.5 ${isLight ? '' : 'invert'}`}
+                        style={{ opacity: 0.8 }}
+                      />
+                    )}
+                  </div>
+                </button>
               );
             })}
-          </div>
-
-          {/* Wiring visualization - horizontal bar and hub */}
-          <div className="flex justify-center">
-            <div className="relative h-[50px]" style={{ width: '210px' }}>
-              {/* Horizontal bar connecting all slots (spans from first to last slot center) */}
-              <div className="absolute left-[24px] right-[24px] top-0 border-t-2 border-[#909090]" />
-
-            {/* Center hub box on the horizontal bar */}
-            <div className="absolute left-1/2 -translate-x-1/2 top-[-6px] w-[28px] h-[14px] bg-[#c0c0c0] border border-[#909090] rounded-sm" />
-
-            {/* Vertical wire from hub going down */}
-            <div className="absolute left-1/2 -translate-x-[1px] top-[8px] h-[14px] border-l-2 border-[#909090]" />
-
-            {/* Horizontal wire from hub toward the center of the panel (extends beyond panel edge) */}
-            {side === 'left' && (
-              <div className="absolute left-1/2 top-[21px] w-[calc(50%+30px)] border-t-2 border-[#909090]" />
-            )}
-            {side === 'right' && (
-              <div className="absolute right-1/2 top-[21px] w-[calc(50%+30px)] border-t-2 border-[#909090]" />
-            )}
-            </div>
           </div>
         </div>
       )}
@@ -200,14 +176,88 @@ function AMSPanelContent({
   );
 }
 
+// Unified wiring layer - draws ALL wiring in one place
+interface WiringLayerProps {
+  isDualNozzle: boolean;
+}
+
+function WiringLayer({ isDualNozzle }: WiringLayerProps) {
+  if (!isDualNozzle) return null;
+
+  // All measurements relative to this container
+  // Container spans full width between panels
+  // Left panel wiring: slots → hub → down → right → down to extruder
+  // Right panel wiring: slots → hub → down → left → down to extruder
+
+  return (
+    <div className="relative w-full" style={{ height: '120px' }}>
+      {/* SVG for all wiring - single coordinate system */}
+      <svg
+        className="absolute inset-0 w-full h-full"
+        viewBox="0 0 600 120"
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {/* Left panel wiring */}
+        {/* Vertical lines from 4 slots */}
+        <line x1="68" y1="0" x2="68" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="122" y1="0" x2="122" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="176" y1="0" x2="176" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="230" y1="0" x2="230" y2="14" stroke="#909090" strokeWidth="2" />
+
+        {/* Horizontal bar connecting left slots */}
+        <line x1="68" y1="14" x2="230" y2="14" stroke="#909090" strokeWidth="2" />
+
+        {/* Left hub */}
+        <rect x="135" y="8" width="28" height="14" rx="2" fill="#c0c0c0" stroke="#909090" strokeWidth="1" />
+
+        {/* Vertical from left hub down */}
+        <line x1="149" y1="22" x2="149" y2="36" stroke="#909090" strokeWidth="2" />
+
+        {/* Horizontal from left hub toward center */}
+        <line x1="149" y1="36" x2="288" y2="36" stroke="#909090" strokeWidth="2" />
+
+        {/* Vertical down to left extruder inlet */}
+        <line x1="288" y1="36" x2="288" y2="85" stroke="#909090" strokeWidth="2" />
+
+        {/* Right panel wiring */}
+        {/* Vertical lines from 4 slots */}
+        <line x1="370" y1="0" x2="370" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="424" y1="0" x2="424" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="478" y1="0" x2="478" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="532" y1="0" x2="532" y2="14" stroke="#909090" strokeWidth="2" />
+
+        {/* Horizontal bar connecting right slots */}
+        <line x1="370" y1="14" x2="532" y2="14" stroke="#909090" strokeWidth="2" />
+
+        {/* Right hub */}
+        <rect x="437" y="8" width="28" height="14" rx="2" fill="#c0c0c0" stroke="#909090" strokeWidth="1" />
+
+        {/* Vertical from right hub down */}
+        <line x1="451" y1="22" x2="451" y2="36" stroke="#909090" strokeWidth="2" />
+
+        {/* Horizontal from right hub toward center */}
+        <line x1="312" y1="36" x2="451" y2="36" stroke="#909090" strokeWidth="2" />
+
+        {/* Vertical down to right extruder inlet */}
+        <line x1="312" y1="36" x2="312" y2="85" stroke="#909090" strokeWidth="2" />
+      </svg>
+
+      {/* Extruder image - positioned at bottom center */}
+      <img
+        src="/icons/extruder-left-right.png"
+        alt="Extruder"
+        className="absolute left-1/2 -translate-x-1/2 bottom-0 h-[50px]"
+      />
+    </div>
+  );
+}
+
 export function AMSSectionDual({ printerId, status, nozzleCount }: AMSSectionDualProps) {
   const isConnected = status?.connected ?? false;
   const isPrinting = status?.state === 'RUNNING';
   const isDualNozzle = nozzleCount > 1;
   const amsUnits: AMSUnit[] = status?.ams ?? [];
 
-  // For dual nozzle, split AMS units between left and right
-  // In real implementation, this would be based on actual nozzle assignment
   const leftUnits = isDualNozzle ? amsUnits.filter((_, i) => i % 2 === 0) : amsUnits;
   const rightUnits = isDualNozzle ? amsUnits.filter((_, i) => i % 2 === 1) : [];
 
@@ -236,30 +286,9 @@ export function AMSSectionDual({ printerId, status, nozzleCount }: AMSSectionDua
   const isLoading = loadMutation.isPending || unloadMutation.isPending;
 
   return (
-    <div className="bg-bambu-dark-tertiary rounded-[10px] p-3 relative overflow-visible">
-      {/* Center wiring and Extruder - absolutely centered between the two AMS panels */}
-      {isDualNozzle && (
-        <>
-          {/* Center wiring: two vertical lines going down to extruder inlets */}
-          {/* Positioned to connect with horizontal wires from AMS panels */}
-          <div className="absolute left-1/2 -translate-x-1/2 bottom-[62px] pointer-events-none" style={{ width: '24px', height: '30px' }}>
-            {/* Left vertical line - connects to left AMS horizontal wire, goes to left extruder inlet */}
-            <div className="absolute left-0 top-0 h-full border-l-2 border-[#909090]" />
-            {/* Right vertical line - connects to right AMS horizontal wire, goes to right extruder inlet */}
-            <div className="absolute right-0 top-0 h-full border-l-2 border-[#909090]" />
-          </div>
-          {/* Extruder */}
-          <img
-            src="/icons/extruder-left-right.png"
-            alt="Extruder"
-            className="absolute h-[50px] left-1/2 -translate-x-1/2 bottom-[12px]"
-          />
-        </>
-      )}
-
-      {/* Dual Panel Layout */}
-      <div className="flex gap-5 overflow-visible">
-        {/* Left Nozzle Panel */}
+    <div className="bg-bambu-dark-tertiary rounded-[10px] p-3">
+      {/* Dual Panel Layout - just the panels, no wiring */}
+      <div className="flex gap-5">
         <AMSPanelContent
           units={leftUnits}
           side="left"
@@ -270,7 +299,6 @@ export function AMSSectionDual({ printerId, status, nozzleCount }: AMSSectionDua
           onSelectTray={setSelectedTray}
         />
 
-        {/* Right Nozzle Panel - only for dual nozzle */}
         {isDualNozzle && (
           <AMSPanelContent
             units={rightUnits}
@@ -284,9 +312,11 @@ export function AMSSectionDual({ printerId, status, nozzleCount }: AMSSectionDua
         )}
       </div>
 
-      {/* Action Buttons Row with Extruder */}
-      <div className="flex items-start pt-2">
-        {/* Left buttons */}
+      {/* Unified Wiring Layer - ALL wiring drawn here */}
+      <WiringLayer isDualNozzle={isDualNozzle} />
+
+      {/* Action Buttons Row - aligned with extruder */}
+      <div className="flex items-start -mt-[50px]">
         <div className="flex items-center gap-2">
           <button className="w-10 h-10 rounded-lg bg-bambu-dark-secondary hover:bg-bambu-dark border border-bambu-dark-tertiary flex items-center justify-center">
             <img src="/icons/ams-settings.svg" alt="Settings" className="w-5 icon-theme" />
@@ -296,10 +326,8 @@ export function AMSSectionDual({ printerId, status, nozzleCount }: AMSSectionDua
           </button>
         </div>
 
-        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Right buttons */}
         <div className="flex items-center gap-2">
           <button
             onClick={handleUnload}
