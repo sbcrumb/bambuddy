@@ -29,6 +29,26 @@ function isLightColor(hex: string | null): boolean {
   return luminance > 0.5;
 }
 
+// Single humidity icon that fills based on level
+// <25% = empty (dry/good)
+// <40% = half filled
+// >=40% = full (wet/bad)
+function HumidityIcon({ humidity }: { humidity: number }) {
+  const getIconSrc = (): string => {
+    if (humidity < 25) return '/icons/humidity-empty.svg';
+    if (humidity < 40) return '/icons/humidity-half.svg';
+    return '/icons/humidity-full.svg';
+  };
+
+  return (
+    <img
+      src={getIconSrc()}
+      alt=""
+      className="w-2.5 h-[14px]"
+    />
+  );
+}
+
 interface AMSPanelContentProps {
   units: AMSUnit[];
   side: 'left' | 'right';
@@ -54,20 +74,16 @@ function AMSPanelContent({
 
   return (
     <div className="flex-1 min-w-0">
-      <div className="text-center text-[11px] font-semibold text-bambu-gray uppercase mb-2">
-        {side === 'left' ? 'Left Nozzle' : 'Right Nozzle'}
-      </div>
-
       {/* AMS Tab Selectors */}
-      <div className="flex gap-1.5 mb-2.5 p-1.5 bg-bambu-dark/50 rounded-lg w-fit">
+      <div className="flex gap-1.5 mb-2.5 p-1.5 bg-white dark:bg-bambu-dark rounded-lg">
         {units.map((unit, index) => (
           <button
             key={unit.id}
             onClick={() => onSelectAms(index)}
-            className={`flex items-center p-1.5 rounded border-2 transition-colors bg-bambu-dark ${
+            className={`flex items-center p-1.5 rounded border-2 transition-colors ${
               selectedAmsIndex === index
-                ? 'border-bambu-green'
-                : 'border-transparent hover:border-bambu-gray'
+                ? 'border-bambu-green bg-bambu-dark-secondary'
+                : 'bg-bambu-dark border-transparent hover:border-bambu-gray'
             }`}
           >
             <div className="flex gap-0.5">
@@ -87,30 +103,29 @@ function AMSPanelContent({
 
       {/* AMS Content */}
       {selectedUnit && (
-        <div className="bg-bambu-dark-secondary rounded-[10px] p-2.5">
-          {/* AMS Header - Humidity & Temp */}
-          <div className="flex items-center gap-2.5 text-xs text-bambu-gray mb-2">
+        <div className="bg-white dark:bg-bambu-dark-secondary rounded-[10px] p-2.5">
+          {/* AMS Header - Humidity & Temp - Centered */}
+          <div className="flex items-center justify-center gap-4 text-xs text-bambu-gray mb-2.5">
             {selectedUnit.humidity !== null && (
-              <span className="flex items-center gap-1">
-                <img src="/icons/water.svg" alt="" className="w-3.5 icon-theme" />
+              <span className="flex items-center gap-1.5">
+                <HumidityIcon humidity={selectedUnit.humidity} />
                 {selectedUnit.humidity} %
               </span>
             )}
             {selectedUnit.temp !== null && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 <img src="/icons/temperature.svg" alt="" className="w-3.5 icon-theme" />
                 {selectedUnit.temp}°C
               </span>
             )}
-            <span className="text-yellow-500 text-sm">☀</span>
           </div>
 
           {/* Slot Labels */}
-          <div className="flex justify-center gap-1.5 mb-1.5">
+          <div className="flex justify-center gap-2 mb-1.5">
             {selectedUnit.tray.map((tray, index) => (
               <div
                 key={tray.id}
-                className="w-12 flex items-center justify-center gap-0.5 text-[10px] text-bambu-gray px-1.5 py-[3px] bg-bambu-dark rounded-full border border-bambu-dark-tertiary"
+                className="w-14 flex items-center justify-center gap-0.5 text-[10px] text-bambu-gray px-1.5 py-[3px] bg-bambu-dark rounded-full border border-bambu-dark-tertiary"
               >
                 {slotPrefix}{index + 1}
                 <img src="/icons/reload.svg" alt="" className="w-2.5 h-2.5 icon-theme" />
@@ -119,7 +134,7 @@ function AMSPanelContent({
           </div>
 
           {/* AMS Slots - NO wiring here */}
-          <div className="flex justify-center gap-1.5">
+          <div className="flex justify-center gap-2">
             {selectedUnit.tray.map((tray) => {
               const globalTrayId = selectedUnit.id * 4 + tray.id;
               const isSelected = selectedTray === globalTrayId;
@@ -131,7 +146,7 @@ function AMSPanelContent({
                   key={tray.id}
                   onClick={() => !isEmpty && onSelectTray(isSelected ? null : globalTrayId)}
                   disabled={isEmpty || isPrinting}
-                  className={`w-12 h-[70px] rounded-md border-2 overflow-hidden transition-all bg-bambu-dark ${
+                  className={`w-14 h-[80px] rounded-md border-2 overflow-hidden transition-all bg-bambu-dark ${
                     isSelected
                       ? 'border-[#d4a84b]'
                       : 'border-bambu-dark-tertiary hover:border-bambu-gray'
@@ -192,6 +207,11 @@ function WiringLayer({ isDualNozzle }: WiringLayerProps) {
   return (
     <div className="relative w-full" style={{ height: '120px' }}>
       {/* SVG for all wiring - single coordinate system */}
+      {/* Slots are w-14 (56px) with gap-2 (8px), 4 slots = 248px total, centered in each ~300px panel */}
+      {/* Left panel center ~150, slots start at 150 - 124 = 26 */}
+      {/* Slot centers: 26+28=54, 54+64=118, 118+64=182, 182+64=246 */}
+      {/* Right panel center ~450, slots start at 450 - 124 = 326 */}
+      {/* Slot centers: 326+28=354, 354+64=418, 418+64=482, 482+64=546 */}
       <svg
         className="absolute inset-0 w-full h-full"
         viewBox="0 0 600 120"
@@ -199,44 +219,44 @@ function WiringLayer({ isDualNozzle }: WiringLayerProps) {
       >
         {/* Left panel wiring */}
         {/* Vertical lines from 4 slots */}
-        <line x1="68" y1="0" x2="68" y2="14" stroke="#909090" strokeWidth="2" />
-        <line x1="122" y1="0" x2="122" y2="14" stroke="#909090" strokeWidth="2" />
-        <line x1="176" y1="0" x2="176" y2="14" stroke="#909090" strokeWidth="2" />
-        <line x1="230" y1="0" x2="230" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="54" y1="0" x2="54" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="118" y1="0" x2="118" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="182" y1="0" x2="182" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="246" y1="0" x2="246" y2="14" stroke="#909090" strokeWidth="2" />
 
         {/* Horizontal bar connecting left slots */}
-        <line x1="68" y1="14" x2="230" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="54" y1="14" x2="246" y2="14" stroke="#909090" strokeWidth="2" />
 
         {/* Left hub */}
-        <rect x="135" y="8" width="28" height="14" rx="2" fill="#c0c0c0" stroke="#909090" strokeWidth="1" />
+        <rect x="136" y="8" width="28" height="14" rx="2" fill="#c0c0c0" stroke="#909090" strokeWidth="1" />
 
         {/* Vertical from left hub down */}
-        <line x1="149" y1="22" x2="149" y2="36" stroke="#909090" strokeWidth="2" />
+        <line x1="150" y1="22" x2="150" y2="36" stroke="#909090" strokeWidth="2" />
 
         {/* Horizontal from left hub toward center */}
-        <line x1="149" y1="36" x2="288" y2="36" stroke="#909090" strokeWidth="2" />
+        <line x1="150" y1="36" x2="288" y2="36" stroke="#909090" strokeWidth="2" />
 
         {/* Vertical down to left extruder inlet */}
         <line x1="288" y1="36" x2="288" y2="85" stroke="#909090" strokeWidth="2" />
 
         {/* Right panel wiring */}
         {/* Vertical lines from 4 slots */}
-        <line x1="370" y1="0" x2="370" y2="14" stroke="#909090" strokeWidth="2" />
-        <line x1="424" y1="0" x2="424" y2="14" stroke="#909090" strokeWidth="2" />
-        <line x1="478" y1="0" x2="478" y2="14" stroke="#909090" strokeWidth="2" />
-        <line x1="532" y1="0" x2="532" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="354" y1="0" x2="354" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="418" y1="0" x2="418" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="482" y1="0" x2="482" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="546" y1="0" x2="546" y2="14" stroke="#909090" strokeWidth="2" />
 
         {/* Horizontal bar connecting right slots */}
-        <line x1="370" y1="14" x2="532" y2="14" stroke="#909090" strokeWidth="2" />
+        <line x1="354" y1="14" x2="546" y2="14" stroke="#909090" strokeWidth="2" />
 
         {/* Right hub */}
-        <rect x="437" y="8" width="28" height="14" rx="2" fill="#c0c0c0" stroke="#909090" strokeWidth="1" />
+        <rect x="436" y="8" width="28" height="14" rx="2" fill="#c0c0c0" stroke="#909090" strokeWidth="1" />
 
         {/* Vertical from right hub down */}
-        <line x1="451" y1="22" x2="451" y2="36" stroke="#909090" strokeWidth="2" />
+        <line x1="450" y1="22" x2="450" y2="36" stroke="#909090" strokeWidth="2" />
 
         {/* Horizontal from right hub toward center */}
-        <line x1="312" y1="36" x2="451" y2="36" stroke="#909090" strokeWidth="2" />
+        <line x1="312" y1="36" x2="450" y2="36" stroke="#909090" strokeWidth="2" />
 
         {/* Vertical down to right extruder inlet */}
         <line x1="312" y1="36" x2="312" y2="85" stroke="#909090" strokeWidth="2" />
