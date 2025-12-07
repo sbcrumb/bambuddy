@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Plus,
-  Wifi,
-  WifiOff,
+  Link,
+  Unlink,
   Signal,
   Thermometer,
   Clock,
@@ -218,9 +218,9 @@ function PrinterCard({
               }`}
             >
               {status?.connected ? (
-                <Wifi className="w-3 h-3" />
+                <Link className="w-3 h-3" />
               ) : (
-                <WifiOff className="w-3 h-3" />
+                <Unlink className="w-3 h-3" />
               )}
               {status?.connected ? 'Connected' : 'Offline'}
             </span>
