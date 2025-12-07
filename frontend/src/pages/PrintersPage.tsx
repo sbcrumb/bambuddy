@@ -17,6 +17,7 @@ import {
   PowerOff,
   Zap,
   Wrench,
+  ChevronDown,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -710,16 +711,92 @@ function AddPrinterModal({
   );
 }
 
+// Component to check if a printer is offline (for power dropdown)
+function usePrinterOfflineStatus(printerId: number) {
+  const { data: status } = useQuery({
+    queryKey: ['printerStatus', printerId],
+    queryFn: () => api.getPrinterStatus(printerId),
+    refetchInterval: 30000,
+  });
+  return !status?.connected;
+}
+
+// Power dropdown item for an offline printer
+function PowerDropdownItem({
+  printer,
+  plug,
+  onPowerOn,
+  isPowering,
+}: {
+  printer: Printer;
+  plug: { id: number; name: string };
+  onPowerOn: (plugId: number) => void;
+  isPowering: boolean;
+}) {
+  const isOffline = usePrinterOfflineStatus(printer.id);
+
+  // Fetch plug status
+  const { data: plugStatus } = useQuery({
+    queryKey: ['smartPlugStatus', plug.id],
+    queryFn: () => api.getSmartPlugStatus(plug.id),
+    refetchInterval: 10000,
+  });
+
+  // Only show if printer is offline
+  if (!isOffline) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center justify-between px-3 py-2 hover:bg-gray-100 dark:hover:bg-bambu-dark-tertiary">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-sm text-gray-900 dark:text-white truncate">{printer.name}</span>
+        {plugStatus && (
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded ${
+              plugStatus.state === 'ON'
+                ? 'bg-bambu-green/20 text-bambu-green'
+                : 'bg-red-500/20 text-red-400'
+            }`}
+          >
+            {plugStatus.state || '?'}
+          </span>
+        )}
+      </div>
+      <button
+        onClick={() => onPowerOn(plug.id)}
+        disabled={isPowering || plugStatus?.state === 'ON'}
+        className={`px-2 py-1 text-xs rounded transition-colors flex items-center gap-1 ${
+          plugStatus?.state === 'ON'
+            ? 'bg-bambu-green/20 text-bambu-green cursor-default'
+            : 'bg-bambu-green/20 text-bambu-green hover:bg-bambu-green hover:text-white'
+        }`}
+      >
+        <Power className="w-3 h-3" />
+        {isPowering ? '...' : 'On'}
+      </button>
+    </div>
+  );
+}
+
 export function PrintersPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [hideDisconnected, setHideDisconnected] = useState(() => {
     return localStorage.getItem('hideDisconnectedPrinters') === 'true';
   });
+  const [showPowerDropdown, setShowPowerDropdown] = useState(false);
+  const [poweringOn, setPoweringOn] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: printers, isLoading } = useQuery({
     queryKey: ['printers'],
     queryFn: api.getPrinters,
+  });
+
+  // Fetch all smart plugs to know which printers have them
+  const { data: smartPlugs } = useQuery({
+    queryKey: ['smart-plugs'],
+    queryFn: api.getSmartPlugs,
   });
 
   // Fetch maintenance overview for all printers to show badges
@@ -742,11 +819,33 @@ export function PrintersPage() {
     {} as Record<number, PrinterMaintenanceInfo>
   ) || {};
 
+  // Create a map of printer_id -> smart plug
+  const smartPlugByPrinter = smartPlugs?.reduce(
+    (acc, plug) => {
+      if (plug.printer_id) {
+        acc[plug.printer_id] = plug;
+      }
+      return acc;
+    },
+    {} as Record<number, typeof smartPlugs[0]>
+  ) || {};
+
   const addMutation = useMutation({
     mutationFn: api.createPrinter,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['printers'] });
       setShowAddModal(false);
+    },
+  });
+
+  const powerOnMutation = useMutation({
+    mutationFn: (plugId: number) => api.controlSmartPlug(plugId, 'on'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['smart-plugs'] });
+      setPoweringOn(null);
+    },
+    onError: () => {
+      setPoweringOn(null);
     },
   });
 
@@ -773,6 +872,50 @@ export function PrintersPage() {
             />
             Hide offline
           </label>
+          {/* Power dropdown for offline printers with smart plugs */}
+          {hideDisconnected && Object.keys(smartPlugByPrinter).length > 0 && (
+            <div className="relative">
+              <button
+                onClick={() => setShowPowerDropdown(!showPowerDropdown)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white dark:bg-bambu-dark-secondary border border-gray-200 dark:border-bambu-dark-tertiary rounded-lg text-gray-600 dark:text-bambu-gray hover:text-gray-900 dark:hover:text-white hover:border-bambu-green transition-colors"
+              >
+                <Power className="w-4 h-4" />
+                Power On
+                <ChevronDown className={`w-3 h-3 transition-transform ${showPowerDropdown ? 'rotate-180' : ''}`} />
+              </button>
+              {showPowerDropdown && (
+                <>
+                  {/* Backdrop to close dropdown */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setShowPowerDropdown(false)}
+                  />
+                  <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-bambu-dark-secondary border border-gray-200 dark:border-bambu-dark-tertiary rounded-lg shadow-lg z-20 py-1">
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-bambu-gray border-b border-gray-200 dark:border-bambu-dark-tertiary">
+                      Offline printers with smart plugs
+                    </div>
+                    {printers?.filter(p => smartPlugByPrinter[p.id]).map(printer => (
+                      <PowerDropdownItem
+                        key={printer.id}
+                        printer={printer}
+                        plug={smartPlugByPrinter[printer.id]}
+                        onPowerOn={(plugId) => {
+                          setPoweringOn(plugId);
+                          powerOnMutation.mutate(plugId);
+                        }}
+                        isPowering={poweringOn === smartPlugByPrinter[printer.id]?.id}
+                      />
+                    ))}
+                    {printers?.filter(p => smartPlugByPrinter[p.id]).length === 0 && (
+                      <div className="px-3 py-2 text-sm text-bambu-gray">
+                        No printers with smart plugs
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <Button onClick={() => setShowAddModal(true)}>
             <Plus className="w-4 h-4" />
             Add Printer
