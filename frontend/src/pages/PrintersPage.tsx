@@ -18,6 +18,7 @@ import {
   Zap,
   Wrench,
   ChevronDown,
+  Pencil,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -104,6 +105,7 @@ function PrinterCard({
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showFileManager, setShowFileManager] = useState(false);
   const [showMQTTDebug, setShowMQTTDebug] = useState(false);
   const [showPowerOnConfirm, setShowPowerOnConfirm] = useState(false);
@@ -254,6 +256,16 @@ function PrinterCard({
               </Button>
               {showMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg shadow-lg z-10">
+                  <button
+                    className="w-full px-4 py-2 text-left text-sm hover:bg-bambu-dark-tertiary flex items-center gap-2"
+                    onClick={() => {
+                      setShowEditModal(true);
+                      setShowMenu(false);
+                    }}
+                  >
+                    <Pencil className="w-4 h-4" />
+                    Edit
+                  </button>
                   <button
                     className="w-full px-4 py-2 text-left text-sm hover:bg-bambu-dark-tertiary flex items-center gap-2"
                     onClick={() => {
@@ -566,6 +578,14 @@ function PrinterCard({
           onClose={() => setShowHMSModal(false)}
         />
       )}
+
+      {/* Edit Printer Modal */}
+      {showEditModal && (
+        <EditPrinterModal
+          printer={printer}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </Card>
   );
 }
@@ -702,6 +722,163 @@ function AddPrinterModal({
               </Button>
               <Button type="submit" className="flex-1">
                 Add Printer
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function EditPrinterModal({
+  printer,
+  onClose,
+}: {
+  printer: Printer;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState({
+    name: printer.name,
+    ip_address: printer.ip_address,
+    access_code: '',
+    model: printer.model || '',
+    auto_archive: printer.auto_archive,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (data: Partial<PrinterCreate>) => api.updatePrinter(printer.id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['printers'] });
+      queryClient.invalidateQueries({ queryKey: ['printerStatus', printer.id] });
+      onClose();
+    },
+  });
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const data: Partial<PrinterCreate> = {
+      name: form.name,
+      ip_address: form.ip_address,
+      model: form.model || undefined,
+      auto_archive: form.auto_archive,
+    };
+    // Only include access_code if it was changed
+    if (form.access_code) {
+      data.access_code = form.access_code;
+    }
+    updateMutation.mutate(data);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
+      <Card className="w-full max-w-md" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+        <CardContent>
+          <h2 className="text-xl font-semibold mb-4">Edit Printer</h2>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm text-bambu-gray mb-1">Name</label>
+              <input
+                type="text"
+                required
+                className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                placeholder="My Printer"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-bambu-gray mb-1">IP Address</label>
+              <input
+                type="text"
+                required
+                pattern="\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"
+                className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                value={form.ip_address}
+                onChange={(e) => setForm({ ...form, ip_address: e.target.value })}
+                placeholder="192.168.1.100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-bambu-gray mb-1">Serial Number</label>
+              <input
+                type="text"
+                disabled
+                className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-bambu-gray cursor-not-allowed"
+                value={printer.serial_number}
+              />
+              <p className="text-xs text-bambu-gray mt-1">Serial number cannot be changed</p>
+            </div>
+            <div>
+              <label className="block text-sm text-bambu-gray mb-1">Access Code</label>
+              <input
+                type="password"
+                className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                value={form.access_code}
+                onChange={(e) => setForm({ ...form, access_code: e.target.value })}
+                placeholder="Leave empty to keep current"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-bambu-gray mb-1">Model</label>
+              <select
+                className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
+                value={form.model}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+              >
+                <option value="">Select model...</option>
+                <optgroup label="H2 Series">
+                  <option value="H2C">H2C</option>
+                  <option value="H2D">H2D</option>
+                  <option value="H2S">H2S</option>
+                </optgroup>
+                <optgroup label="X1 Series">
+                  <option value="X1E">X1E</option>
+                  <option value="X1C">X1 Carbon</option>
+                  <option value="X1">X1</option>
+                </optgroup>
+                <optgroup label="P Series">
+                  <option value="P2S">P2S</option>
+                  <option value="P1S">P1S</option>
+                  <option value="P1P">P1P</option>
+                </optgroup>
+                <optgroup label="A1 Series">
+                  <option value="A1">A1</option>
+                  <option value="A1 Mini">A1 Mini</option>
+                </optgroup>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="edit_auto_archive"
+                checked={form.auto_archive}
+                onChange={(e) => setForm({ ...form, auto_archive: e.target.checked })}
+                className="rounded border-bambu-dark-tertiary bg-bambu-dark text-bambu-green focus:ring-bambu-green"
+              />
+              <label htmlFor="edit_auto_archive" className="text-sm text-bambu-gray">
+                Auto-archive completed prints
+              </label>
+            </div>
+            <div className="flex gap-3 pt-4">
+              <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
+                Cancel
+              </Button>
+              <Button type="submit" className="flex-1" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </form>
