@@ -2,9 +2,11 @@ import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { api } from '../api/client';
+import { useTheme } from '../contexts/ThemeContext';
 
 export function ExternalLinkPage() {
   const { id } = useParams<{ id: string }>();
+  const { theme } = useTheme();
 
   const { data: link, isLoading, error } = useQuery({
     queryKey: ['external-link', id],
@@ -32,7 +34,8 @@ export function ExternalLinkPage() {
   return (
     <iframe
       src={link.url}
-      className="h-full w-full border-0 bg-white"
+      className="h-full w-full border-0"
+      style={{ colorScheme: theme }}
       title={link.name}
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
     />
