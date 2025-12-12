@@ -3,8 +3,11 @@ FROM node:22-bookworm-slim AS frontend-builder
 
 WORKDIR /app/frontend
 
-COPY frontend/package*.json ./
-RUN npm ci --unsafe-perm
+# Copy package files and install dependencies as node user to avoid permission issues
+COPY --chown=node:node frontend/package*.json ./
+USER node
+RUN npm ci
+USER root
 
 COPY frontend/ ./
 RUN npm run build
