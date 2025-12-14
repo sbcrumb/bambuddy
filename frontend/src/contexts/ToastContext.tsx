@@ -1,16 +1,19 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Info, X, Loader2 } from 'lucide-react';
 
-type ToastType = 'success' | 'error' | 'warning' | 'info';
+type ToastType = 'success' | 'error' | 'warning' | 'info' | 'loading';
 
 interface Toast {
   id: string;
   message: string;
   type: ToastType;
+  persistent?: boolean;
 }
 
 interface ToastContextType {
   showToast: (message: string, type?: ToastType) => void;
+  showPersistentToast: (id: string, message: string, type?: ToastType) => void;
+  dismissToast: (id: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -28,6 +31,7 @@ const icons = {
   error: <XCircle className="w-5 h-5 text-red-400" />,
   warning: <AlertCircle className="w-5 h-5 text-yellow-400" />,
   info: <Info className="w-5 h-5 text-blue-400" />,
+  loading: <Loader2 className="w-5 h-5 text-bambu-green animate-spin" />,
 };
 
 const bgColors = {
@@ -35,6 +39,7 @@ const bgColors = {
   error: 'bg-red-500/10 border-red-500/30',
   warning: 'bg-yellow-500/10 border-yellow-500/30',
   info: 'bg-blue-500/10 border-blue-500/30',
+  loading: 'bg-bambu-green/10 border-bambu-green/30',
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -50,12 +55,23 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, 3000);
   }, []);
 
+  const showPersistentToast = useCallback((id: string, message: string, type: ToastType = 'info') => {
+    setToasts((prev) => {
+      // Update existing toast if same id, otherwise add new one
+      const exists = prev.find((t) => t.id === id);
+      if (exists) {
+        return prev.map((t) => (t.id === id ? { ...t, message, type, persistent: true } : t));
+      }
+      return [...prev, { id, message, type, persistent: true }];
+    });
+  }, []);
+
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, showPersistentToast, dismissToast }}>
       {children}
 
       {/* Toast Container */}

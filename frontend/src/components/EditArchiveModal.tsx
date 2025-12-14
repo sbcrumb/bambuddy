@@ -144,7 +144,7 @@ export function EditArchiveModal({ archive, onClose, existingTags = [] }: EditAr
       project_id: projectId,
       notes: notes || undefined,
       tags: tags || undefined,
-      failure_reason: archive.status === 'failed' ? (failureReason || undefined) : undefined,
+      failure_reason: (archive.status === 'failed' || archive.status === 'aborted') ? (failureReason || undefined) : undefined,
     });
   };
 
@@ -297,8 +297,8 @@ export function EditArchiveModal({ archive, onClose, existingTags = [] }: EditAr
             </div>
           </div>
 
-          {/* Failure Reason - only show for failed prints */}
-          {archive.status === 'failed' && (
+          {/* Failure Reason - only show for failed/aborted prints */}
+          {(archive.status === 'failed' || archive.status === 'aborted') && (
             <div>
               <label className="block text-sm text-bambu-gray mb-1">Failure Reason</label>
               <select

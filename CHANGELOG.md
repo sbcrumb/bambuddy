@@ -2,6 +2,37 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
+## [0.1.5] - 2025-12-14
+
+### Fixed
+- **Timelapse auto-download** - Complete rewrite with retry mechanism and multiple path support
+- **Browser tab crash** - Fixed rapid re-render cascade on print completion events
+- **Timelapse detection for H2D** - H2D sends timelapse status in ipcam.timelapse field, not xcam.timelapse
+- **Reprint from archive** - Fixed bug where print button sent slicer source file instead of sliced gcode
+- **Import shadowing bugs** - Fixed ArchiveService import shadowing causing "cannot access local variable" error
+- **Timelapse race condition** - xcam data was parsed before print state was set
+
+### Added
+- **Failure reason detection** - Auto-detects failure reasons from HMS errors:
+  - Filament runout (Module 0x07)
+  - Layer shift (Module 0x0C)
+  - Clogged nozzle (Module 0x05)
+- **Hide failed prints filter** - Toggle to hide failed/aborted prints with localStorage persistence
+- **Docker test suite** - Comprehensive tests for build, backend, frontend, and integration
+- **Pre-commit hooks** - Ruff linter and formatter for code quality
+- **Code quality tests** - Static analysis to catch import shadowing bugs automatically
+
+### Changed
+- **Timelapse viewer** - Default playback speed changed from 0.5x to 2x
+- **Archive badges** - Shows "cancelled" for aborted prints, "failed" for failed prints
+- **WebSocket optimization** - Removed large raw_data field from print_complete message
+
+### Docker
+- Added ffmpeg to Docker image
+- Fixed build warnings (debconf, pip root user)
+- Added comprehensive Docker documentation to README
+- Added `--pull` flag to ensure fresh base images
+
 ## [0.1.5b6] - 2025-12-12
 
   Notifications:

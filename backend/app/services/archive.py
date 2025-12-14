@@ -1,19 +1,19 @@
 import hashlib
 import json
 import re
-import zipfile
 import shutil
+import zipfile
 from datetime import datetime
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_
 
 from backend.app.core.config import settings
 from backend.app.models.archive import PrintArchive
-from backend.app.models.printer import Printer
 from backend.app.models.filament import Filament
+from backend.app.models.printer import Printer
 
 
 class ThreeMFParser:
@@ -116,19 +116,20 @@ class ThreeMFParser:
     def _parse_gcode_header(self, zf: zipfile.ZipFile):
         """Parse G-code file header for total layer count."""
         import re
+
         try:
             # Look for plate_1.gcode or similar
-            gcode_files = [f for f in zf.namelist() if f.endswith('.gcode')]
+            gcode_files = [f for f in zf.namelist() if f.endswith(".gcode")]
             if not gcode_files:
                 return
 
             # Read first 2KB of G-code (header contains the layer count)
             gcode_path = gcode_files[0]
             with zf.open(gcode_path) as f:
-                header = f.read(2048).decode('utf-8', errors='ignore')
+                header = f.read(2048).decode("utf-8", errors="ignore")
 
             # Look for "; total layer number: XX" pattern
-            match = re.search(r';\s*total\s+layer\s+number[:\s]+(\d+)', header, re.IGNORECASE)
+            match = re.search(r";\s*total\s+layer\s+number[:\s]+(\d+)", header, re.IGNORECASE)
             if match:
                 self.metadata["total_layers"] = int(match.group(1))
         except Exception:
@@ -149,8 +150,8 @@ class ThreeMFParser:
             non_support_colors = []
 
             for i, ftype in enumerate(filament_types):
-                is_support = filament_is_support[i] if i < len(filament_is_support) else '0'
-                if is_support == '0':
+                is_support = filament_is_support[i] if i < len(filament_is_support) else "0"
+                if is_support == "0":
                     if ftype and ftype not in non_support_types:
                         non_support_types.append(ftype)
                     if i < len(filament_colors) and filament_colors[i]:
@@ -243,6 +244,7 @@ class ThreeMFParser:
     def _parse_3dmodel(self, zf: zipfile.ZipFile):
         """Parse 3D/3dmodel.model for MakerWorld metadata."""
         import re
+
         try:
             model_path = "3D/3dmodel.model"
             if model_path not in zf.namelist():
@@ -270,7 +272,7 @@ class ThreeMFParser:
             # Format: https://makerworld.bblmw.com/makerworld/model/DSM00000001275614/...
             # The numeric part (1275614) is the MakerWorld model ID
             if "makerworld_url" not in self.metadata:
-                dsm_pattern = r'DSM0+(\d+)'
+                dsm_pattern = r"DSM0+(\d+)"
                 dsm_match = re.search(dsm_pattern, content)
                 if dsm_match:
                     model_id = dsm_match.group(1)
@@ -298,11 +300,13 @@ class ThreeMFParser:
             thumbnail_paths.append(f"Metadata/plate_{self.plate_number}.png")
 
         # Fallback to default paths
-        thumbnail_paths.extend([
-            "Metadata/plate_1.png",
-            "Metadata/thumbnail.png",
-            "Metadata/model_thumbnail.png",
-        ])
+        thumbnail_paths.extend(
+            [
+                "Metadata/plate_1.png",
+                "Metadata/thumbnail.png",
+                "Metadata/model_thumbnail.png",
+            ]
+        )
 
         for thumb_path in thumbnail_paths:
             if thumb_path in zf.namelist():
@@ -386,36 +390,43 @@ class ProjectPageParser:
                                 prev = decoded
                                 decoded = html.unescape(decoded)
                             # Normalize non-breaking spaces to regular spaces
-                            decoded = decoded.replace('\xa0', ' ')
+                            decoded = decoded.replace("\xa0", " ")
                             result[field_mapping[name]] = decoded if decoded else None
 
                 # List images in Auxiliaries folder
                 from urllib.parse import quote
+
                 for name in zf.namelist():
                     if name.startswith("Auxiliaries/Model Pictures/"):
                         filename = name.split("/")[-1]
                         if filename:
-                            result["model_pictures"].append({
-                                "name": filename,
-                                "path": name,
-                                "url": f"/api/v1/archives/{archive_id}/project-image/{quote(name, safe='')}",
-                            })
+                            result["model_pictures"].append(
+                                {
+                                    "name": filename,
+                                    "path": name,
+                                    "url": f"/api/v1/archives/{archive_id}/project-image/{quote(name, safe='')}",
+                                }
+                            )
                     elif name.startswith("Auxiliaries/Profile Pictures/"):
                         filename = name.split("/")[-1]
                         if filename:
-                            result["profile_pictures"].append({
-                                "name": filename,
-                                "path": name,
-                                "url": f"/api/v1/archives/{archive_id}/project-image/{quote(name, safe='')}",
-                            })
+                            result["profile_pictures"].append(
+                                {
+                                    "name": filename,
+                                    "path": name,
+                                    "url": f"/api/v1/archives/{archive_id}/project-image/{quote(name, safe='')}",
+                                }
+                            )
                     elif name.startswith("Auxiliaries/.thumbnails/"):
                         filename = name.split("/")[-1]
                         if filename:
-                            result["thumbnails"].append({
-                                "name": filename,
-                                "path": name,
-                                "url": f"/api/v1/archives/{archive_id}/project-image/{quote(name, safe='')}",
-                            })
+                            result["thumbnails"].append(
+                                {
+                                    "name": filename,
+                                    "path": name,
+                                    "url": f"/api/v1/archives/{archive_id}/project-image/{quote(name, safe='')}",
+                                }
+                            )
 
         except Exception as e:
             result["_error"] = str(e)
@@ -485,7 +496,7 @@ class ProjectPageParser:
                         new_value = html.escape(updates[field])
                         # Replace existing metadata or we'd need to add it
                         pattern = rf'(<metadata\s+name="{xml_name}"[^>]*>)[^<]*(</metadata>)'
-                        replacement = rf'\g<1>{new_value}\g<2>'
+                        replacement = rf"\g<1>{new_value}\g<2>"
                         content = re.sub(pattern, replacement, content)
 
                 # Write to a temporary file first
@@ -569,12 +580,14 @@ class ArchiveService:
                 .limit(10)
             )
             for archive in result.scalars().all():
-                duplicates.append({
-                    "id": archive.id,
-                    "print_name": archive.print_name,
-                    "created_at": archive.created_at,
-                    "match_type": "exact",
-                })
+                duplicates.append(
+                    {
+                        "id": archive.id,
+                        "print_name": archive.print_name,
+                        "created_at": archive.created_at,
+                        "match_type": "exact",
+                    }
+                )
 
         # Then, find similar matches by print name or MakerWorld ID
         if print_name or makerworld_model_id:
@@ -587,29 +600,29 @@ class ArchiveService:
             if makerworld_model_id:
                 # Match by MakerWorld model ID stored in extra_data
                 # Use json_extract for SQLite compatibility (astext is PostgreSQL-only)
-                from sqlalchemy import func, cast, String
+                from sqlalchemy import func
+
                 name_conditions.append(
-                    func.json_extract(PrintArchive.extra_data, '$.makerworld_model_id') == str(makerworld_model_id)
+                    func.json_extract(PrintArchive.extra_data, "$.makerworld_model_id") == str(makerworld_model_id)
                 )
 
             if name_conditions:
                 conditions.append(or_(*name_conditions))
 
                 result = await self.db.execute(
-                    select(PrintArchive)
-                    .where(and_(*conditions))
-                    .order_by(PrintArchive.created_at.desc())
-                    .limit(10)
+                    select(PrintArchive).where(and_(*conditions)).order_by(PrintArchive.created_at.desc()).limit(10)
                 )
                 for archive in result.scalars().all():
                     # Don't add if already in duplicates (exact match)
                     if not any(d["id"] == archive.id for d in duplicates):
-                        duplicates.append({
-                            "id": archive.id,
-                            "print_name": archive.print_name,
-                            "created_at": archive.created_at,
-                            "match_type": "similar",
-                        })
+                        duplicates.append(
+                            {
+                                "id": archive.id,
+                                "print_name": archive.print_name,
+                                "created_at": archive.created_at,
+                                "match_type": "similar",
+                            }
+                        )
 
         return duplicates
 
@@ -622,9 +635,7 @@ class ArchiveService:
         """Archive a 3MF file with metadata."""
         # Verify printer exists if specified
         if printer_id is not None:
-            result = await self.db.execute(
-                select(Printer).where(Printer.id == printer_id)
-            )
+            result = await self.db.execute(select(Printer).where(Printer.id == printer_id))
             printer = result.scalar_one_or_none()
             if not printer:
                 return None
@@ -648,7 +659,7 @@ class ArchiveService:
         plate_number = None
         if print_data:
             filename = print_data.get("filename", "")
-            match = re.search(r'plate_(\d+)', filename)
+            match = re.search(r"plate_(\d+)", filename)
             if match:
                 plate_number = int(match.group(1))
 
@@ -682,9 +693,7 @@ class ArchiveService:
             # For multi-material prints, use the first filament type for cost calculation
             primary_type = filament_type.split(",")[0].strip()
             # Look up filament cost_per_kg from database
-            filament_result = await self.db.execute(
-                select(Filament).where(Filament.type == primary_type).limit(1)
-            )
+            filament_result = await self.db.execute(select(Filament).where(Filament.type == primary_type).limit(1))
             filament = filament_result.scalar_one_or_none()
             if filament:
                 cost = round((filament_grams / 1000) * filament.cost_per_kg, 2)
@@ -728,9 +737,7 @@ class ArchiveService:
 
     async def get_archive(self, archive_id: int) -> PrintArchive | None:
         """Get an archive by ID."""
-        result = await self.db.execute(
-            select(PrintArchive).where(PrintArchive.id == archive_id)
-        )
+        result = await self.db.execute(select(PrintArchive).where(PrintArchive.id == archive_id))
         return result.scalar_one_or_none()
 
     async def update_archive_status(
@@ -738,6 +745,7 @@ class ArchiveService:
         archive_id: int,
         status: str,
         completed_at: datetime | None = None,
+        failure_reason: str | None = None,
     ) -> bool:
         """Update the status of an archive."""
         archive = await self.get_archive(archive_id)
@@ -747,6 +755,8 @@ class ArchiveService:
         archive.status = status
         if completed_at:
             archive.completed_at = completed_at
+        if failure_reason:
+            archive.failure_reason = failure_reason
 
         await self.db.commit()
         return True
@@ -762,9 +772,7 @@ class ArchiveService:
         from sqlalchemy.orm import selectinload
 
         query = (
-            select(PrintArchive)
-            .options(selectinload(PrintArchive.project))
-            .order_by(PrintArchive.created_at.desc())
+            select(PrintArchive).options(selectinload(PrintArchive.project)).order_by(PrintArchive.created_at.desc())
         )
 
         if printer_id:

@@ -24,7 +24,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const { t, i18n } = useTranslation();
-  const { showToast } = useToast();
+  const { showToast, showPersistentToast, dismissToast } = useToast();
   const [localSettings, setLocalSettings] = useState<AppSettings | null>(null);
   const [showPlugModal, setShowPlugModal] = useState(false);
   const [editingPlug, setEditingPlug] = useState<SmartPlug | null>(null);
@@ -1836,17 +1836,35 @@ export function SettingsPage() {
           onClose={() => setShowBackupModal(false)}
           onExport={async (categories) => {
             setShowBackupModal(false);
+            const toastId = 'backup-progress';
+            const includesArchives = categories.archives;
+
+            // Show persistent loading toast for archive backups (can be large)
+            if (includesArchives) {
+              showPersistentToast(toastId, t('backup.preparing', { defaultValue: 'Preparing backup...' }), 'loading');
+            }
+
             try {
               const { blob, filename } = await api.exportBackup(categories);
+
+              // Dismiss loading toast before download starts
+              if (includesArchives) {
+                dismissToast(toastId);
+              }
+
               const url = URL.createObjectURL(blob);
               const a = document.createElement('a');
               a.href = url;
               a.download = filename;
               a.click();
               URL.revokeObjectURL(url);
-              showToast('Backup downloaded', 'success');
+              showToast(t('backup.downloaded', { defaultValue: 'Backup downloaded' }), 'success');
             } catch (err) {
-              showToast('Failed to create backup', 'error');
+              // Dismiss loading toast on error
+              if (includesArchives) {
+                dismissToast(toastId);
+              }
+              showToast(t('backup.failed', { defaultValue: 'Failed to create backup' }), 'error');
             }
           }}
         />
