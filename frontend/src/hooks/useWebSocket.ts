@@ -17,6 +17,46 @@ export function useWebSocket() {
   const pendingInvalidations = useRef<Set<string>>(new Set());
   const invalidationTimeoutRef = useRef<number | null>(null);
 
+  // Throttle printer status updates to prevent freeze during rapid messages
+  const pendingPrinterStatus = useRef<Map<number, Record<string, unknown>>>(new Map());
+  const printerStatusTimeoutRef = useRef<number | null>(null);
+
+  // Throttle message processing to prevent browser freeze
+  const messageQueueRef = useRef<WebSocketMessage[]>([]);
+  const processingRef = useRef(false);
+
+  // Use ref for handleMessage to avoid stale closure in connect
+  const handleMessageRef = useRef<(message: WebSocketMessage) => void>(() => {});
+
+  // Process message queue with throttling to prevent UI freeze
+  const processMessageQueue = useCallback(() => {
+    if (processingRef.current || messageQueueRef.current.length === 0) {
+      return;
+    }
+
+    processingRef.current = true;
+
+    const processNext = () => {
+      const message = messageQueueRef.current.shift();
+      if (message) {
+        // Use requestAnimationFrame to yield to the browser
+        requestAnimationFrame(() => {
+          handleMessageRef.current(message);
+          // Small delay between messages to prevent overwhelming the browser
+          if (messageQueueRef.current.length > 0) {
+            setTimeout(processNext, 16); // ~60fps
+          } else {
+            processingRef.current = false;
+          }
+        });
+      } else {
+        processingRef.current = false;
+      }
+    };
+
+    processNext();
+  }, []);
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       return;
@@ -43,7 +83,9 @@ export function useWebSocket() {
     ws.onmessage = (event) => {
       try {
         const message: WebSocketMessage = JSON.parse(event.data);
-        handleMessage(message);
+        // Queue message for throttled processing
+        messageQueueRef.current.push(message);
+        processMessageQueue();
       } catch {
         // Ignore parse errors
       }
@@ -72,6 +114,38 @@ export function useWebSocket() {
     wsRef.current = ws;
   }, []);
 
+  // Throttled printer status update - coalesces rapid updates per printer
+  const throttledPrinterStatusUpdate = useCallback((printerId: number, data: Record<string, unknown>) => {
+    // Merge with any pending data for this printer
+    const existing = pendingPrinterStatus.current.get(printerId) || {};
+    pendingPrinterStatus.current.set(printerId, { ...existing, ...data });
+
+    // Schedule update if not already scheduled
+    if (!printerStatusTimeoutRef.current) {
+      printerStatusTimeoutRef.current = window.setTimeout(() => {
+        const updates = new Map(pendingPrinterStatus.current);
+        pendingPrinterStatus.current.clear();
+        printerStatusTimeoutRef.current = null;
+
+        // Apply all pending updates
+        requestAnimationFrame(() => {
+          updates.forEach((statusData, id) => {
+            queryClient.setQueryData(
+              ['printerStatus', id],
+              (old: Record<string, unknown> | undefined) => {
+                const merged = { ...old, ...statusData };
+                if (merged.wifi_signal == null && old?.wifi_signal != null) {
+                  merged.wifi_signal = old.wifi_signal;
+                }
+                return merged;
+              }
+            );
+          });
+        });
+      }, 100); // Update at most every 100ms
+    }
+  }, [queryClient]);
+
   // Debounced invalidation helper - coalesces multiple rapid invalidations
   const debouncedInvalidate = useCallback((queryKey: string) => {
     pendingInvalidations.current.add(queryKey);
@@ -81,57 +155,44 @@ export function useWebSocket() {
       clearTimeout(invalidationTimeoutRef.current);
     }
 
-    // Schedule invalidation after a short delay (100ms)
+    // Schedule invalidation after a delay (3s to prevent browser freeze on print completion)
     invalidationTimeoutRef.current = window.setTimeout(() => {
       const keys = Array.from(pendingInvalidations.current);
       pendingInvalidations.current.clear();
       invalidationTimeoutRef.current = null;
 
-      // Use requestAnimationFrame to avoid blocking the main thread
-      requestAnimationFrame(() => {
-        keys.forEach((key) => {
-          queryClient.invalidateQueries({ queryKey: [key] });
-        });
+      // Invalidate queries one at a time with delays to prevent freeze
+      let delay = 0;
+      keys.forEach((key) => {
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            queryClient.invalidateQueries({ queryKey: [key] });
+          });
+        }, delay);
+        delay += 500; // 500ms between each invalidation
       });
-    }, 100);
+    }, 3000);
   }, [queryClient]);
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
       case 'printer_status':
-        // Update the printer status in the query cache
-        if (message.printer_id !== undefined) {
-          queryClient.setQueryData(
-            ['printerStatus', message.printer_id],
-            (old: Record<string, unknown> | undefined) => {
-              const merged = {
-                ...old,
-                ...message.data,
-              };
-              // Preserve last known wifi_signal if new value is null
-              if (merged.wifi_signal == null && old?.wifi_signal != null) {
-                merged.wifi_signal = old.wifi_signal;
-              }
-              return merged;
-            }
-          );
+        if (message.printer_id !== undefined && message.data) {
+          throttledPrinterStatusUpdate(message.printer_id, message.data);
         }
         break;
 
       case 'print_complete':
-        // Invalidate archives to refresh the list (debounced)
         debouncedInvalidate('archives');
         debouncedInvalidate('archiveStats');
         break;
 
       case 'archive_created':
-        // Invalidate archives to show new archive (debounced)
         debouncedInvalidate('archives');
         debouncedInvalidate('archiveStats');
         break;
 
       case 'archive_updated':
-        // Invalidate archives to refresh (debounced)
         debouncedInvalidate('archives');
         break;
 
@@ -139,7 +200,12 @@ export function useWebSocket() {
         // Keepalive response, ignore
         break;
     }
-  }, [queryClient, debouncedInvalidate]);
+  }, [queryClient, debouncedInvalidate, throttledPrinterStatusUpdate]);
+
+  // Keep the ref updated with latest handleMessage
+  useEffect(() => {
+    handleMessageRef.current = handleMessage;
+  }, [handleMessage]);
 
   useEffect(() => {
     connect();
@@ -150,6 +216,9 @@ export function useWebSocket() {
       }
       if (invalidationTimeoutRef.current) {
         clearTimeout(invalidationTimeoutRef.current);
+      }
+      if (printerStatusTimeoutRef.current) {
+        clearTimeout(printerStatusTimeoutRef.current);
       }
       if (wsRef.current) {
         wsRef.current.close();
