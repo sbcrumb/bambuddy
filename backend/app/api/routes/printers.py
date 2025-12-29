@@ -334,6 +334,21 @@ async def get_printer_status(printer_id: int, db: AsyncSession = Depends(get_db)
     )
 
 
+@router.post("/{printer_id}/refresh-status")
+async def refresh_printer_status(printer_id: int, db: AsyncSession = Depends(get_db)):
+    """Request a full status refresh from the printer (sends pushall command)."""
+    result = await db.execute(select(Printer).where(Printer.id == printer_id))
+    printer = result.scalar_one_or_none()
+    if not printer:
+        raise HTTPException(404, "Printer not found")
+
+    success = printer_manager.request_status_update(printer_id)
+    if not success:
+        raise HTTPException(400, "Printer not connected")
+
+    return {"status": "refresh_requested"}
+
+
 @router.post("/{printer_id}/connect")
 async def connect_printer(printer_id: int, db: AsyncSession = Depends(get_db)):
     """Manually connect to a printer."""

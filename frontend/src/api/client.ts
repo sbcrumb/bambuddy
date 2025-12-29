@@ -1253,6 +1253,10 @@ export const api = {
     ),
   getPrinterStatus: (id: number) =>
     request<PrinterStatus>(`/printers/${id}/status`),
+  refreshPrinterStatus: (id: number) =>
+    request<{ status: string }>(`/printers/${id}/refresh-status`, {
+      method: 'POST',
+    }),
   connectPrinter: (id: number) =>
     request<{ connected: boolean }>(`/printers/${id}/connect`, {
       method: 'POST',
