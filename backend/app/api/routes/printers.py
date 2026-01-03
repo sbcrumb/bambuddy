@@ -1181,9 +1181,10 @@ async def get_printable_objects(
                 if downloaded and temp_path.exists():
                     with open(temp_path, "rb") as f:
                         data = f.read()
-                    objects = extract_printable_objects_from_3mf(data, include_positions=True)
+                    objects, bbox_all = extract_printable_objects_from_3mf(data, include_positions=True)
                     if objects:
                         client.state.printable_objects = objects
+                        client.state.printable_objects_bbox_all = bbox_all
                         logger.info(f"Reloaded {len(objects)} objects for printer {printer_id}")
             except Exception as e:
                 logger.debug(f"Failed to reload objects from printer: {e}")
@@ -1219,6 +1220,7 @@ async def get_printable_objects(
         "total": len(objects),
         "skipped_count": len(client.state.skipped_objects),
         "is_printing": client.state.state in ("RUNNING", "PAUSE"),
+        "bbox_all": getattr(client.state, "printable_objects_bbox_all", None),
     }
 
 

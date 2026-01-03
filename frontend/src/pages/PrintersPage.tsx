@@ -2523,15 +2523,32 @@ function PrinterCard({
                     {objectsData.objects.length > 0 && (
                       <div className="absolute inset-0 pointer-events-none">
                         {objectsData.objects.map((obj, idx) => {
-                          // Build plate is typically 256x256mm for X1C
-                          const buildPlateSize = 256;
                           let x: number, y: number;
 
                           // Use position data if available, otherwise fall back to grid
-                          if (obj.x != null && obj.y != null) {
-                            // Convert mm position to percentage (0-100)
-                            // Clamp to valid range and add padding
-                            // Y axis is inverted: 3D printing Y goes back, image Y goes down
+                          if (obj.x != null && obj.y != null && objectsData.bbox_all) {
+                            // bbox_all is [x_min, y_min, x_max, y_max] - the bounds of all objects
+                            // The top_N.png image is rendered to show this area with ~10% padding
+                            const [xMin, yMin, xMax, yMax] = objectsData.bbox_all;
+                            const bboxWidth = xMax - xMin;
+                            const bboxHeight = yMax - yMin;
+
+                            // Calculate position relative to bbox, with padding
+                            // The image has roughly 10% padding on each side
+                            const padding = 10;
+                            const contentArea = 100 - (padding * 2);
+
+                            x = padding + ((obj.x - xMin) / bboxWidth) * contentArea;
+                            // Y axis: in 3D coords Y increases toward back, in image Y increases down
+                            // So we need to flip: high Y in 3D = low Y in image (top)
+                            y = padding + ((yMax - obj.y) / bboxHeight) * contentArea;
+
+                            // Clamp to valid range
+                            x = Math.max(5, Math.min(95, x));
+                            y = Math.max(5, Math.min(95, y));
+                          } else if (obj.x != null && obj.y != null) {
+                            // Fallback: use full build plate (256mm for X1C)
+                            const buildPlateSize = 256;
                             x = Math.max(10, Math.min(90, (obj.x / buildPlateSize) * 100));
                             y = Math.max(10, Math.min(90, 100 - (obj.y / buildPlateSize) * 100));
                           } else {

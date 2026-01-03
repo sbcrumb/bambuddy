@@ -1326,6 +1326,7 @@ export const api = {
       total: number;
       skipped_count: number;
       is_printing: boolean;
+      bbox_all: [number, number, number, number] | null;
     }>(`/printers/${printerId}/print/objects`),
 
   skipObjects: (printerId: number, objectIds: number[]) =>
