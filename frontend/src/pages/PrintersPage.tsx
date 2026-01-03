@@ -862,6 +862,7 @@ function PrinterCard({
   viewMode = 'expanded',
   amsThresholds,
   spoolmanEnabled = false,
+  hasUnlinkedSpools = false,
 }: {
   printer: Printer;
   hideIfDisconnected?: boolean;
@@ -874,6 +875,7 @@ function PrinterCard({
     tempFair: number;
   };
   spoolmanEnabled?: boolean;
+  hasUnlinkedSpools?: boolean;
 }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -1923,6 +1925,7 @@ function PrinterCard({
                                         data={filamentData}
                                         spoolman={{
                                           enabled: spoolmanEnabled,
+                                          hasUnlinkedSpools,
                                           onLinkSpool: spoolmanEnabled && filamentData.trayUuid ? (uuid) => {
                                             setLinkSpoolModal({
                                               trayUuid: uuid,
@@ -2082,6 +2085,7 @@ function PrinterCard({
                                     data={filamentData}
                                     spoolman={{
                                       enabled: spoolmanEnabled,
+                                      hasUnlinkedSpools,
                                       onLinkSpool: spoolmanEnabled && filamentData.trayUuid ? (uuid) => {
                                         setLinkSpoolModal({
                                           trayUuid: uuid,
@@ -2186,6 +2190,7 @@ function PrinterCard({
                               data={extFilamentData}
                               spoolman={{
                                 enabled: spoolmanEnabled,
+                                hasUnlinkedSpools,
                                 onLinkSpool: spoolmanEnabled && extFilamentData.trayUuid ? (uuid) => {
                                   setLinkSpoolModal({
                                     trayUuid: uuid,
@@ -3372,6 +3377,15 @@ export function PrintersPage() {
   });
   const spoolmanEnabled = spoolmanStatus?.enabled && spoolmanStatus?.connected;
 
+  // Fetch unlinked spools to know if link button should be enabled
+  const { data: unlinkedSpools } = useQuery({
+    queryKey: ['unlinked-spools'],
+    queryFn: api.getUnlinkedSpools,
+    enabled: !!spoolmanEnabled,
+    staleTime: 30 * 1000, // 30 seconds
+  });
+  const hasUnlinkedSpools = unlinkedSpools && unlinkedSpools.length > 0;
+
   // Create a map of printer_id -> maintenance info for quick lookup
   const maintenanceByPrinter = maintenanceOverview?.reduce(
     (acc, overview) => {
@@ -3647,6 +3661,7 @@ export function PrintersPage() {
                       tempFair: Number(settings.ams_temp_fair) || 35,
                     } : undefined}
                     spoolmanEnabled={spoolmanEnabled}
+                    hasUnlinkedSpools={hasUnlinkedSpools}
                   />
                 ))}
               </div>
@@ -3668,6 +3683,7 @@ export function PrintersPage() {
               maintenanceInfo={maintenanceByPrinter[printer.id]}
               viewMode={viewMode}
               spoolmanEnabled={spoolmanEnabled}
+              hasUnlinkedSpools={hasUnlinkedSpools}
               amsThresholds={settings ? {
                 humidityGood: Number(settings.ams_humidity_good) || 40,
                 humidityFair: Number(settings.ams_humidity_fair) || 60,
