@@ -23,6 +23,7 @@ vi.mock('../../api/client', () => ({
   virtualPrinterApi: {
     getSettings: vi.fn(),
     updateSettings: vi.fn(),
+    getModels: vi.fn(),
   },
 }));
 
@@ -34,16 +35,30 @@ const createMockSettings = (overrides = {}) => ({
   enabled: false,
   access_code_set: false,
   mode: 'immediate' as const,
+  model: 'BL-P001',
   status: {
     enabled: false,
     running: false,
     mode: 'immediate',
     name: 'Bambuddy',
     serial: '00M09A391800001',
+    model: 'BL-P001',
+    model_name: 'X1C',
     pending_files: 0,
   },
   ...overrides,
 });
+
+const mockModelsData = {
+  models: {
+    'BL-P001': 'X1C',
+    'BL-P002': 'X1',
+    'BL-P003': 'X1E',
+    'C11': 'P1S',
+    'C12': 'P1P',
+  },
+  default: 'BL-P001',
+};
 
 describe('VirtualPrinterSettings', () => {
   beforeEach(() => {
@@ -51,6 +66,7 @@ describe('VirtualPrinterSettings', () => {
     // Default mock implementation
     vi.mocked(virtualPrinterApi.getSettings).mockResolvedValue(createMockSettings());
     vi.mocked(virtualPrinterApi.updateSettings).mockResolvedValue(createMockSettings());
+    vi.mocked(virtualPrinterApi.getModels).mockResolvedValue(mockModelsData);
   });
 
   describe('rendering', () => {

@@ -15,13 +15,36 @@ from backend.app.services.virtual_printer.ssdp_server import VirtualPrinterSSDPS
 logger = logging.getLogger(__name__)
 
 
+# Mapping of SSDP model codes to display names
+# These are the codes that slicers expect during discovery
+VIRTUAL_PRINTER_MODELS = {
+    # X1 Series
+    "BL-P001": "X1C",  # X1 Carbon
+    "BL-P002": "X1",  # X1
+    "BL-P003": "X1E",  # X1E
+    # P Series
+    "C11": "P1S",  # P1S
+    "C12": "P1P",  # P1P
+    "C13": "P2S",  # P2S
+    # A1 Series
+    "N2S": "A1",  # A1
+    "N1": "A1 Mini",  # A1 Mini
+    # H2 Series
+    "O1D": "H2D",  # H2D
+    "O1C": "H2C",  # H2C
+    "O1S": "H2S",  # H2S
+}
+
+# Default model
+DEFAULT_VIRTUAL_PRINTER_MODEL = "BL-P001"  # X1C
+
+
 class VirtualPrinterManager:
     """Manages the virtual printer lifecycle and coordinates all services."""
 
     # Fixed configuration
     PRINTER_NAME = "Bambuddy"
     PRINTER_SERIAL = "00M09A391800001"  # X1C serial format
-    PRINTER_MODEL = "3DPrinter-X1-Carbon"  # Full model name for slicer compatibility
 
     def __init__(self):
         """Initialize the virtual printer manager."""
@@ -29,6 +52,7 @@ class VirtualPrinterManager:
         self._enabled = False
         self._access_code = ""
         self._mode = "immediate"
+        self._model = DEFAULT_VIRTUAL_PRINTER_MODEL
 
         # Service instances
         self._ssdp: VirtualPrinterSSDPServer | None = None
@@ -72,6 +96,7 @@ class VirtualPrinterManager:
         enabled: bool,
         access_code: str = "",
         mode: str = "immediate",
+        model: str = "",
     ) -> None:
         """Configure and start/stop virtual printer.
 
@@ -79,17 +104,27 @@ class VirtualPrinterManager:
             enabled: Whether to enable the virtual printer
             access_code: Authentication password for slicer connections
             mode: Archive mode - 'immediate' or 'queue'
+            model: SSDP model code (e.g., 'BL-P001' for X1C)
         """
         if enabled and not access_code:
             raise ValueError("Access code is required when enabling virtual printer")
 
+        # Validate model if provided
+        new_model = model if model and model in VIRTUAL_PRINTER_MODELS else self._model
+        model_changed = new_model != self._model
+
         self._access_code = access_code
         self._mode = mode
+        self._model = new_model
 
         if enabled and not self._enabled:
             await self._start()
         elif not enabled and self._enabled:
             await self._stop()
+        elif enabled and self._enabled and model_changed:
+            # Model changed while running - restart services
+            await self._stop()
+            await self._start()
 
         self._enabled = enabled
 
@@ -108,7 +143,7 @@ class VirtualPrinterManager:
         self._ssdp = VirtualPrinterSSDPServer(
             name=self.PRINTER_NAME,
             serial=self.PRINTER_SERIAL,
-            model=self.PRINTER_MODEL,
+            model=self._model,
         )
 
         self._ftp = VirtualPrinterFTPServer(
@@ -314,7 +349,8 @@ class VirtualPrinterManager:
             "mode": self._mode,
             "name": self.PRINTER_NAME,
             "serial": self.PRINTER_SERIAL,
-            "model": self.PRINTER_MODEL,
+            "model": self._model,
+            "model_name": VIRTUAL_PRINTER_MODELS.get(self._model, self._model),
             "pending_files": len(self._pending_files),
         }
 

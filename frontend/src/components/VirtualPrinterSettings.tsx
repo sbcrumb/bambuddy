@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Loader2, Check, AlertTriangle, Printer, Eye, EyeOff, Info } from 'lucide-react';
+import { Loader2, Check, AlertTriangle, Printer, Eye, EyeOff, Info, ChevronDown } from 'lucide-react';
 import { virtualPrinterApi } from '../api/client';
 import { Card, CardContent, CardHeader } from './Card';
 import { Button } from './Button';
@@ -13,6 +13,7 @@ export function VirtualPrinterSettings() {
   const [localEnabled, setLocalEnabled] = useState(false);
   const [localAccessCode, setLocalAccessCode] = useState('');
   const [localMode, setLocalMode] = useState<'immediate' | 'queue'>('immediate');
+  const [localModel, setLocalModel] = useState('BL-P001');
   const [showAccessCode, setShowAccessCode] = useState(false);
 
   // Fetch current settings
@@ -22,17 +23,24 @@ export function VirtualPrinterSettings() {
     refetchInterval: 10000, // Refresh every 10 seconds for status updates
   });
 
+  // Fetch available models
+  const { data: modelsData } = useQuery({
+    queryKey: ['virtual-printer-models'],
+    queryFn: virtualPrinterApi.getModels,
+  });
+
   // Initialize local state from settings
   useEffect(() => {
     if (settings) {
       setLocalEnabled(settings.enabled);
       setLocalMode(settings.mode);
+      setLocalModel(settings.model);
     }
   }, [settings]);
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: { enabled?: boolean; access_code?: string; mode?: 'immediate' | 'queue' }) =>
+    mutationFn: (data: { enabled?: boolean; access_code?: string; mode?: 'immediate' | 'queue'; model?: string }) =>
       virtualPrinterApi.updateSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtual-printer-settings'] });
@@ -44,6 +52,7 @@ export function VirtualPrinterSettings() {
       if (settings) {
         setLocalEnabled(settings.enabled);
         setLocalMode(settings.mode);
+        setLocalModel(settings.model);
       }
     },
   });
@@ -85,6 +94,11 @@ export function VirtualPrinterSettings() {
   const handleModeChange = (mode: 'immediate' | 'queue') => {
     setLocalMode(mode);
     updateMutation.mutate({ mode });
+  };
+
+  const handleModelChange = (model: string) => {
+    setLocalModel(model);
+    updateMutation.mutate({ model });
   };
 
   if (isLoading) {
@@ -146,6 +160,35 @@ export function VirtualPrinterSettings() {
                 }`}
               />
             </button>
+          </div>
+
+          {/* Printer Model */}
+          <div className="py-3 border-t border-bambu-dark-tertiary">
+            <div className="text-white font-medium mb-2">Printer Model</div>
+            <div className="text-sm text-bambu-gray mb-3">
+              Select which printer model to emulate.
+            </div>
+            <div className="relative">
+              <select
+                value={localModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                disabled={updateMutation.isPending || isRunning}
+                className="w-full bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-md px-3 py-2 text-white appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed pr-10"
+              >
+                {modelsData?.models && Object.entries(modelsData.models).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name} ({code})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bambu-gray pointer-events-none" />
+            </div>
+            {isRunning && (
+              <p className="text-xs text-yellow-400 mt-2">
+                <AlertTriangle className="w-3 h-3 inline mr-1" />
+                Disable the virtual printer to change the model
+              </p>
+            )}
           </div>
 
           {/* Access Code */}
@@ -264,6 +307,20 @@ export function VirtualPrinterSettings() {
                     sudo iptables -t nat -A OUTPUT -o lo -p tcp --dport 990 -j REDIRECT --to-port 9990
                   </code>
                 </div>
+                <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/30 rounded text-xs">
+                  <strong className="text-blue-400">Docker users:</strong>{' '}
+                  <span className="text-bambu-gray">
+                    Host network mode is required for SSDP discovery.{' '}
+                    <a
+                      href="https://wiki.bambuddy.cool/features/virtual-printer/#docker-configuration"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:underline"
+                    >
+                      See Docker configuration guide →
+                    </a>
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -283,7 +340,7 @@ export function VirtualPrinterSettings() {
                 </div>
                 <div>
                   <div className="text-bambu-gray">Model</div>
-                  <div className="text-white">{status.model?.replace('3DPrinter-', '').replace('-', ' ') || 'X1 Carbon'}</div>
+                  <div className="text-white">{status.model_name || status.model}</div>
                 </div>
                 <div>
                   <div className="text-bambu-gray">Serial Number</div>

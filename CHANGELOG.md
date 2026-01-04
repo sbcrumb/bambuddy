@@ -16,6 +16,11 @@ All notable changes to Bambuddy will be documented in this file.
   - Play button to manually release staged prints to the queue
   - Edit queue items to switch between ASAP, Scheduled, and Queue Only modes
   - Useful for preparing print batches before activating
+- **Virtual printer model selection** - Choose which Bambu printer model to emulate:
+  - Dropdown in Settings > Virtual Printer to select model
+  - Supports X1 series (X1C, X1, X1E), P series (P1S, P1P, P2S), A1 series (A1, A1 Mini), and H2 series (H2D, H2C, H2S)
+  - Affects how slicers detect and interact with the virtual printer
+  - Model change requires disabling/re-enabling the virtual printer
 
 ### Fixed
 - **Camera stream reconnection** - Improved detection of stuck camera streams with automatic reconnection
@@ -23,6 +28,7 @@ All notable changes to Bambuddy will be documented in this file.
 ### Tests
 - Added integration tests for print queue API endpoints (16 new tests)
 - Tests cover queue CRUD, manual_start flag, and start/cancel endpoints
+- Added unit tests for virtual printer model configuration (3 new tests)
 
 ## [0.1.6b5] - 2026-01-02
 

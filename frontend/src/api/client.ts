@@ -2450,6 +2450,7 @@ export interface VirtualPrinterStatus {
   name: string;
   serial: string;
   model: string;
+  model_name: string;
   pending_files: number;
 }
 
@@ -2457,7 +2458,13 @@ export interface VirtualPrinterSettings {
   enabled: boolean;
   access_code_set: boolean;
   mode: 'immediate' | 'queue';
+  model: string;
   status: VirtualPrinterStatus;
+}
+
+export interface VirtualPrinterModels {
+  models: Record<string, string>;  // SSDP code -> display name
+  default: string;
 }
 
 export interface PendingUpload {
@@ -2476,15 +2483,19 @@ export interface PendingUpload {
 export const virtualPrinterApi = {
   getSettings: () => request<VirtualPrinterSettings>('/settings/virtual-printer'),
 
+  getModels: () => request<VirtualPrinterModels>('/settings/virtual-printer/models'),
+
   updateSettings: (data: {
     enabled?: boolean;
     access_code?: string;
     mode?: 'immediate' | 'queue';
+    model?: string;
   }) => {
     const params = new URLSearchParams();
     if (data.enabled !== undefined) params.set('enabled', String(data.enabled));
     if (data.access_code !== undefined) params.set('access_code', data.access_code);
     if (data.mode !== undefined) params.set('mode', data.mode);
+    if (data.model !== undefined) params.set('model', data.model);
 
     return request<VirtualPrinterSettings>(`/settings/virtual-printer?${params.toString()}`, {
       method: 'PUT',
