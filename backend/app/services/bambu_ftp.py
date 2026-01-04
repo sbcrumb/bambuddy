@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import socket
 import ssl
 from collections.abc import Callable
@@ -170,6 +171,8 @@ class BambuFTPClient:
             local_path.parent.mkdir(parents=True, exist_ok=True)
             with open(local_path, "wb") as f:
                 self._ftp.retrbinary(f"RETR {remote_path}", f.write)
+                f.flush()
+                os.fsync(f.fileno())
             file_size = local_path.stat().st_size if local_path.exists() else 0
             logger.info(f"Successfully downloaded {remote_path} to {local_path} ({file_size} bytes)")
             return True
