@@ -1,18 +1,19 @@
-import type { ReactNode, MouseEvent } from 'react';
+import type { ReactNode, MouseEvent, HTMLAttributes } from 'react';
 
-interface CardProps {
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
   className?: string;
   onClick?: (e: MouseEvent) => void;
   onContextMenu?: (e: MouseEvent) => void;
 }
 
-export function Card({ children, className = '', onClick, onContextMenu }: CardProps) {
+export function Card({ children, className = '', onClick, onContextMenu, ...rest }: CardProps) {
   return (
     <div
       className={`bg-bambu-dark-secondary rounded-xl border border-bambu-dark-tertiary card-shadow ${className}`}
       onClick={onClick}
       onContextMenu={onContextMenu}
+      {...rest}
     >
       {children}
     </div>

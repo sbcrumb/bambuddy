@@ -6,6 +6,7 @@ import { api } from '../api/client';
 interface CalendarViewProps {
   archives: Archive[];
   onArchiveClick?: (archive: Archive) => void;
+  highlightedArchiveId?: number | null;
 }
 
 function getDaysInMonth(year: number, month: number): number {
@@ -23,11 +24,12 @@ const MONTH_NAMES = [
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function CalendarView({ archives, onArchiveClick }: CalendarViewProps) {
+export function CalendarView({ archives, onArchiveClick, highlightedArchiveId }: CalendarViewProps) {
   const today = new Date();
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedArchiveId, setSelectedArchiveId] = useState<number | null>(null);
 
   // Group archives by date
   const archivesByDate = useMemo(() => {
@@ -78,6 +80,14 @@ export function CalendarView({ archives, onArchiveClick }: CalendarViewProps) {
   }
 
   const selectedArchives = selectedDate ? archivesByDate.get(selectedDate) || [] : [];
+
+  // Clear selected archive when date changes
+  const handleDateSelect = (dateKey: string | null) => {
+    if (dateKey !== selectedDate) {
+      setSelectedArchiveId(null);
+    }
+    setSelectedDate(dateKey);
+  };
 
   return (
     <div className="flex flex-col lg:flex-row gap-6">
@@ -137,7 +147,7 @@ export function CalendarView({ archives, onArchiveClick }: CalendarViewProps) {
             return (
               <button
                 key={day}
-                onClick={() => setSelectedDate(isSelected ? null : dateKey)}
+                onClick={() => handleDateSelect(isSelected ? null : dateKey)}
                 className={`aspect-square rounded-lg p-1 flex flex-col items-center justify-center transition-colors relative ${
                   isSelected
                     ? 'bg-bambu-green text-white'
@@ -216,11 +226,19 @@ export function CalendarView({ archives, onArchiveClick }: CalendarViewProps) {
             </h3>
             {selectedArchives.length > 0 ? (
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {selectedArchives.map(archive => (
+                {selectedArchives.map(archive => {
+                  const isHighlighted = archive.id === selectedArchiveId || archive.id === highlightedArchiveId;
+                  return (
                   <button
                     key={archive.id}
-                    onClick={() => onArchiveClick?.(archive)}
-                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-bambu-dark-tertiary transition-colors text-left"
+                    onClick={() => {
+                      setSelectedArchiveId(archive.id);
+                      onArchiveClick?.(archive);
+                    }}
+                    className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left ${
+                      !isHighlighted ? 'hover:bg-bambu-dark-tertiary' : ''
+                    }`}
+                    style={isHighlighted ? { outline: '4px solid #facc15', outlineOffset: '2px' } : undefined}
                   >
                     {archive.thumbnail_path ? (
                       <img
@@ -255,7 +273,8 @@ export function CalendarView({ archives, onArchiveClick }: CalendarViewProps) {
                       </div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-bambu-gray">No prints on this day</p>

@@ -2,6 +2,34 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
+## [0.1.6b9] - 2026-01-09
+
+### Added
+- **Archive list view improvements** - Full feature parity with card view:
+  - Edit and delete buttons inline with each row
+  - Three-dot menu button for context menu access
+  - All context menu actions (re-print, compare, add to project, etc.)
+- **Archive object count** - Shows number of printable objects on archive cards:
+  - Displays in stats grid (e.g., "3 objs")
+  - Extracted from 3MF metadata automatically
+- **Cross-view archive highlight** - Click an archive in calendar or project view to highlight it:
+  - Switches to card/list view and scrolls to the archive
+  - Yellow border highlight for 5 seconds
+  - Works in card, list, and calendar views
+- **Context menu visual indicator** - Three-dot button on cards and list items:
+  - Shows on hover (desktop) or always visible (mobile)
+  - Provides quick access to context menu actions
+  - Positioned on left side for easy access
+- **Spoolman location clearing** - When spools are removed from AMS, their location field is now cleared in Spoolman:
+  - Previously, location persisted even after spool removal
+  - Now correctly clears "Printer Name - AMS X Slot Y" when spool is no longer present
+
+### Fixed
+- **QR code endpoint** - Fixed 500 error on archive QR code generation:
+  - Added `qrcode[pil]` to requirements.txt
+  - Improved error handling for missing dependencies
+  - Fixed PIL Image resizing method
+
 ## [0.1.6b8] - 2026-01-08
 
 ### Added

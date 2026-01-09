@@ -1464,16 +1464,20 @@ async def get_qrcode(
     db: AsyncSession = Depends(get_db),
 ):
     """Generate a QR code that links to this archive."""
-    import qrcode
+    try:
+        import qrcode
+        from PIL import Image as PILImage
+    except ImportError:
+        raise HTTPException(500, "QR code generation not available - qrcode package not installed")
 
     result = await db.execute(select(PrintArchive).where(PrintArchive.id == archive_id))
     archive = result.scalar_one_or_none()
     if not archive:
         raise HTTPException(404, "Archive not found")
 
-    # Build URL to archive detail page
+    # Build URL to archive download
     base_url = str(request.base_url).rstrip("/")
-    archive_url = f"{base_url}/archives?id={archive_id}"
+    archive_url = f"{base_url}/api/v1/archives/{archive_id}/download"
 
     # Generate QR code
     qr = qrcode.QRCode(
@@ -1487,13 +1491,16 @@ async def get_qrcode(
 
     img = qr.make_image(fill_color="black", back_color="white")
 
+    # Convert to PIL Image for resizing
+    pil_img = img.get_image()
+
     # Resize if needed
     if size != 200:
-        img = img.resize((size, size))
+        pil_img = pil_img.resize((size, size), PILImage.Resampling.LANCZOS)
 
     # Convert to bytes
     buffer = io.BytesIO()
-    img.save(buffer, format="PNG")
+    pil_img.save(buffer, format="PNG")
     buffer.seek(0)
 
     return Response(

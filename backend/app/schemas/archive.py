@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class ArchiveBase(BaseModel):
@@ -45,6 +45,9 @@ class ArchiveResponse(BaseModel):
     duplicates: list[ArchiveDuplicate] | None = None
     duplicate_count: int = 0  # Quick count for list views
 
+    # Object count (computed from extra_data.printable_objects)
+    object_count: int | None = None
+
     print_name: str | None
     print_time_seconds: int | None  # Estimated time from slicer
     actual_time_seconds: int | None = None  # Computed from started_at/completed_at
@@ -80,6 +83,15 @@ class ArchiveResponse(BaseModel):
     energy_cost: float | None = None
 
     created_at: datetime
+
+    @model_validator(mode="after")
+    def compute_object_count(self) -> "ArchiveResponse":
+        """Compute object_count from extra_data.printable_objects if not set."""
+        if self.object_count is None and self.extra_data:
+            printable_objects = self.extra_data.get("printable_objects")
+            if printable_objects and isinstance(printable_objects, dict):
+                self.object_count = len(printable_objects)
+        return self
 
     class Config:
         from_attributes = True

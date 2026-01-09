@@ -204,6 +204,7 @@ export interface Archive {
   source_3mf_path: string | null;
   duplicates: ArchiveDuplicate[] | null;
   duplicate_count: number;
+  object_count: number | null;
   print_name: string | null;
   print_time_seconds: number | null;
   actual_time_seconds: number | null;  // Computed from started_at/completed_at
