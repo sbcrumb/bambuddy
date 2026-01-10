@@ -15,10 +15,12 @@ T = TypeVar("T")
 
 
 class ImplicitFTP_TLS(FTP_TLS):
-    """FTP_TLS subclass for implicit FTPS (port 990) with optional session reuse.
+    """FTP_TLS subclass for implicit FTPS (port 990) with model-specific SSL handling.
 
-    SSL session reuse is required by X1C/P1S printers (vsFTPd), but causes issues
-    with A1/A1 Mini printers. Set skip_session_reuse=True for A1 printers.
+    X1C/P1S printers (vsFTPd) require SSL with session reuse on the data channel.
+    A1/A1 Mini printers have issues with SSL on the data channel entirely and
+    timeout waiting for transfer completion. Set skip_session_reuse=True for A1
+    printers to skip SSL on the data channel (control channel remains encrypted).
     """
 
     def __init__(self, *args, skip_session_reuse: bool = False, **kwargs):
@@ -49,27 +51,23 @@ class ImplicitFTP_TLS(FTP_TLS):
         return self.welcome
 
     def ntransfercmd(self, cmd, rest=None):
-        """Override to wrap data connection in SSL.
+        """Override to wrap data connection in SSL for X1C/P1S only.
 
-        Session reuse is required by X1C/P1S (vsFTPd) but breaks A1/A1 Mini printers.
-        When skip_session_reuse is True, we still encrypt the data channel but
-        don't reuse the control connection's session.
+        X1C/P1S printers (vsFTPd) require SSL session reuse on the data channel.
+        A1/A1 Mini printers have issues with SSL on the data channel entirely -
+        they timeout waiting for the transfer completion response. For A1, we
+        skip SSL wrapping on the data channel (control channel remains encrypted).
         """
         conn, size = FTP.ntransfercmd(self, cmd, rest)
-        if self._prot_p:
-            if self.skip_session_reuse:
-                # A1/A1 Mini: Don't reuse session (causes timeouts/hangs)
-                conn = self.ssl_context.wrap_socket(
-                    conn,
-                    server_hostname=self.host,
-                )
-            else:
-                # X1C/P1S: Reuse SSL session (required by vsFTPd)
-                conn = self.ssl_context.wrap_socket(
-                    conn,
-                    server_hostname=self.host,
-                    session=self.sock.session,
-                )
+        if self._prot_p and not self.skip_session_reuse:
+            # X1C/P1S: Wrap data channel with SSL session reuse (required by vsFTPd)
+            conn = self.ssl_context.wrap_socket(
+                conn,
+                server_hostname=self.host,
+                session=self.sock.session,
+            )
+        # A1/A1 Mini (skip_session_reuse=True): Don't wrap data channel in SSL
+        # The control channel remains encrypted via implicit FTPS
         return conn, size
 
 

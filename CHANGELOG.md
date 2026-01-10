@@ -30,9 +30,9 @@ All notable changes to Bambuddy will be documented in this file.
   - Applies to: 3MF archiving, print uploads, timelapse downloads, firmware updates
   - Helps P1S, X1C, and other printers with weak WiFi connections
 - **A1/A1 Mini FTP fix** - Resolved FTP upload failures on A1 series printers:
-  - A1 printers don't support SSL session reuse on data connections
-  - Automatic detection and workaround for A1 and A1 Mini models
-  - Maintains full encryption while skipping problematic session reuse
+  - A1 printers have issues with SSL on the FTP data channel
+  - Automatic detection skips data channel SSL for A1 and A1 Mini models
+  - Control channel remains encrypted via implicit FTPS (port 990)
   - Fixes "read operation timed out" errors during file uploads
 
 ### Fixed
