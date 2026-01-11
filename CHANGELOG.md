@@ -39,6 +39,11 @@ All notable changes to Bambuddy will be documented in this file.
   - Automatic detection skips data channel SSL for A1 and A1 Mini models
   - Control channel remains encrypted via implicit FTPS (port 990)
   - Fixes "read operation timed out" errors during file uploads
+- **Bulk project assignment** - Assign multiple archives to a project at once:
+  - New "Project" button in multi-select toolbar (next to Tags)
+  - Select a project to assign all selected archives
+  - "Remove from project" option to clear assignments
+  - Updates Projects page and Project Detail page instantly
 
 ### Fixed
 - **QR code endpoint** - Fixed 500 error on archive QR code generation:

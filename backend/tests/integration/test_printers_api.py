@@ -711,3 +711,85 @@ class TestSkipObjectsAPI:
             assert 100 in result["skipped_objects"]
             assert 200 in result["skipped_objects"]
             mock_client.skip_objects.assert_called_once_with([100, 200])
+
+
+class TestChamberLightAPI:
+    """Integration tests for chamber light control endpoint."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_chamber_light_not_found(self, async_client: AsyncClient):
+        """Verify 404 for non-existent printer."""
+        response = await async_client.post("/api/v1/printers/99999/chamber-light?on=true")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_chamber_light_not_connected(self, async_client: AsyncClient, printer_factory):
+        """Verify error when printer is not connected."""
+        printer = await printer_factory(name="Disconnected Printer")
+
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = None
+
+            response = await async_client.post(f"/api/v1/printers/{printer.id}/chamber-light?on=true")
+
+            assert response.status_code == 400
+            assert "not connected" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_chamber_light_on_success(self, async_client: AsyncClient, printer_factory):
+        """Verify successful chamber light on request."""
+        printer = await printer_factory(name="Test Printer")
+
+        mock_client = MagicMock()
+        mock_client.set_chamber_light.return_value = True
+
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = mock_client
+
+            response = await async_client.post(f"/api/v1/printers/{printer.id}/chamber-light?on=true")
+
+            assert response.status_code == 200
+            result = response.json()
+            assert result["success"] is True
+            assert "on" in result["message"].lower()
+            mock_client.set_chamber_light.assert_called_once_with(True)
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_chamber_light_off_success(self, async_client: AsyncClient, printer_factory):
+        """Verify successful chamber light off request."""
+        printer = await printer_factory(name="Test Printer")
+
+        mock_client = MagicMock()
+        mock_client.set_chamber_light.return_value = True
+
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = mock_client
+
+            response = await async_client.post(f"/api/v1/printers/{printer.id}/chamber-light?on=false")
+
+            assert response.status_code == 200
+            result = response.json()
+            assert result["success"] is True
+            assert "off" in result["message"].lower()
+            mock_client.set_chamber_light.assert_called_once_with(False)
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_chamber_light_failure(self, async_client: AsyncClient, printer_factory):
+        """Verify error handling when chamber light control fails."""
+        printer = await printer_factory(name="Test Printer")
+
+        mock_client = MagicMock()
+        mock_client.set_chamber_light.return_value = False
+
+        with patch("backend.app.api.routes.printers.printer_manager") as mock_pm:
+            mock_pm.get_client.return_value = mock_client
+
+            response = await async_client.post(f"/api/v1/printers/{printer.id}/chamber-light?on=true")
+
+            assert response.status_code == 500
+            assert "failed" in response.json()["detail"].lower()

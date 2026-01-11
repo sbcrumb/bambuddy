@@ -55,6 +55,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { EditArchiveModal } from '../components/EditArchiveModal';
 import { ContextMenu, type ContextMenuItem } from '../components/ContextMenu';
 import { BatchTagModal } from '../components/BatchTagModal';
+import { BatchProjectModal } from '../components/BatchProjectModal';
 import { CalendarView } from '../components/CalendarView';
 import { QRCodeModal } from '../components/QRCodeModal';
 import { PhotoGalleryModal } from '../components/PhotoGalleryModal';
@@ -1670,6 +1671,7 @@ export function ArchivesPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
   const [showBatchTag, setShowBatchTag] = useState(false);
+  const [showBatchProject, setShowBatchProject] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() =>
     (localStorage.getItem('archiveViewMode') as ViewMode) || 'grid'
   );
@@ -2044,6 +2046,14 @@ export function ArchivesPage() {
           >
             <Tag className="w-4 h-4" />
             Tags
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowBatchProject(true)}
+          >
+            <FolderKanban className="w-4 h-4" />
+            Project
           </Button>
           <Button
             variant="secondary"
@@ -2503,6 +2513,14 @@ export function ArchivesPage() {
           selectedIds={Array.from(selectedIds)}
           existingTags={uniqueTags}
           onClose={() => setShowBatchTag(false)}
+        />
+      )}
+
+      {/* Batch Project Modal */}
+      {showBatchProject && (
+        <BatchProjectModal
+          selectedIds={Array.from(selectedIds)}
+          onClose={() => setShowBatchProject(false)}
         />
       )}
 
