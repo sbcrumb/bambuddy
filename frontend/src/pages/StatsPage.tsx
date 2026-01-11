@@ -103,48 +103,83 @@ function QuickStatsWidget({
 
 function SuccessRateWidget({
   stats,
+  printerMap,
+  size = 1,
 }: {
   stats: {
     total_prints: number;
     successful_prints: number;
     failed_prints: number;
+    prints_by_printer: Record<string, number>;
   } | undefined;
+  printerMap: Map<string, string>;
+  size?: 1 | 2 | 4;
 }) {
   const successRate = stats?.total_prints
     ? Math.round((stats.successful_prints / stats.total_prints) * 100)
     : 0;
 
+  // Scale gauge size based on widget size
+  const gaugeSize = size === 1 ? 112 : size === 2 ? 128 : 144;
+  const radius = gaugeSize / 2 - 8;
+  const circumference = radius * 2 * Math.PI;
+
   return (
     <div className="flex items-center gap-6">
-      <div className="relative w-28 h-28">
+      <div className="relative flex-shrink-0" style={{ width: gaugeSize, height: gaugeSize }}>
         <svg className="w-full h-full -rotate-90">
-          <circle cx="56" cy="56" r="48" fill="none" stroke="#3d3d3d" strokeWidth="10" />
           <circle
-            cx="56"
-            cy="56"
-            r="48"
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
+            r={radius}
+            fill="none"
+            stroke="#3d3d3d"
+            strokeWidth="10"
+          />
+          <circle
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
+            r={radius}
             fill="none"
             stroke="#00ae42"
             strokeWidth="10"
             strokeLinecap="round"
-            strokeDasharray={`${successRate * 3.02} 302`}
+            strokeDasharray={`${(successRate / 100) * circumference} ${circumference}`}
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-xl font-bold text-white">{successRate}%</span>
+          <span className={`font-bold text-white ${size >= 2 ? 'text-2xl' : 'text-xl'}`}>{successRate}%</span>
         </div>
       </div>
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-bambu-green" />
-          <span className="text-sm text-bambu-gray">Successful:</span>
-          <span className="text-sm text-white font-medium">{stats?.successful_prints || 0}</span>
+      <div className="flex-1 min-w-0">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-bambu-green flex-shrink-0" />
+            <span className="text-sm text-bambu-gray">Successful:</span>
+            <span className="text-sm text-white font-medium">{stats?.successful_prints || 0}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <span className="text-sm text-bambu-gray">Failed:</span>
+            <span className="text-sm text-white font-medium">{stats?.failed_prints || 0}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <XCircle className="w-4 h-4 text-red-400" />
-          <span className="text-sm text-bambu-gray">Failed:</span>
-          <span className="text-sm text-white font-medium">{stats?.failed_prints || 0}</span>
-        </div>
+        {/* Show per-printer breakdown when expanded */}
+        {size >= 2 && stats?.prints_by_printer && Object.keys(stats.prints_by_printer).length > 0 && (
+          <div className="mt-4 pt-4 border-t border-bambu-dark-tertiary">
+            <p className="text-xs text-bambu-gray font-medium mb-2">Prints by Printer</p>
+            <div className={`grid gap-x-6 gap-y-1 ${size === 4 ? 'grid-cols-3' : 'grid-cols-2'}`} style={{ width: 'fit-content' }}>
+              {Object.entries(stats.prints_by_printer).map(([printerId, count]) => (
+                <div key={printerId} className="flex items-center gap-3 text-sm">
+                  <span className="text-bambu-gray truncate max-w-[120px]">
+                    {printerMap.get(printerId) || `Printer ${printerId}`}
+                  </span>
+                  <span className="text-white font-medium">{count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -153,12 +188,14 @@ function SuccessRateWidget({
 function TimeAccuracyWidget({
   stats,
   printerMap,
+  size = 1,
 }: {
   stats: {
     average_time_accuracy: number | null;
     time_accuracy_by_printer: Record<string, number> | null;
   } | undefined;
   printerMap: Map<string, string>;
+  size?: 1 | 2 | 4;
 }) {
   const accuracy = stats?.average_time_accuracy;
 
@@ -184,38 +221,56 @@ function TimeAccuracyWidget({
   const color = getColor(accuracy);
   const deviation = accuracy - 100;
 
+  // Scale gauge size based on widget size
+  const gaugeSize = size === 1 ? 112 : size === 2 ? 128 : 144;
+  const radius = gaugeSize / 2 - 8;
+  const circumference = radius * 2 * Math.PI;
+
+  // Show more printers when expanded
+  const maxPrinters = size === 1 ? 3 : size === 2 ? 6 : 999;
+  const printerEntries = stats?.time_accuracy_by_printer
+    ? Object.entries(stats.time_accuracy_by_printer).slice(0, maxPrinters)
+    : [];
+
   return (
     <div className="flex items-center gap-6">
-      <div className="relative w-28 h-28">
+      <div className="relative flex-shrink-0" style={{ width: gaugeSize, height: gaugeSize }}>
         <svg className="w-full h-full -rotate-90">
-          <circle cx="56" cy="56" r="48" fill="none" stroke="#3d3d3d" strokeWidth="10" />
           <circle
-            cx="56"
-            cy="56"
-            r="48"
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
+            r={radius}
+            fill="none"
+            stroke="#3d3d3d"
+            strokeWidth="10"
+          />
+          <circle
+            cx={gaugeSize / 2}
+            cy={gaugeSize / 2}
+            r={radius}
             fill="none"
             stroke={color}
             strokeWidth="10"
             strokeLinecap="round"
-            strokeDasharray={`${normalizedForGauge * 3.02} 302`}
+            strokeDasharray={`${(normalizedForGauge / 100) * circumference} ${circumference}`}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold text-white">{accuracy.toFixed(0)}%</span>
+          <span className={`font-bold text-white ${size >= 2 ? 'text-2xl' : 'text-xl'}`}>{accuracy.toFixed(0)}%</span>
           <span className={`text-xs ${deviation >= 0 ? 'text-blue-400' : 'text-orange-400'}`}>
             {deviation >= 0 ? '+' : ''}{deviation.toFixed(0)}%
           </span>
         </div>
       </div>
-      <div className="space-y-2 flex-1">
+      <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 text-xs text-bambu-gray">
-          <Target className="w-3 h-3" />
+          <Target className="w-3 h-3 flex-shrink-0" />
           <span>100% = perfect estimate</span>
         </div>
-        {stats?.time_accuracy_by_printer && Object.keys(stats.time_accuracy_by_printer).length > 0 && (
-          <div className="space-y-1 mt-2">
-            {Object.entries(stats.time_accuracy_by_printer).slice(0, 3).map(([printerId, acc]) => (
-              <div key={printerId} className="flex items-center justify-between text-xs">
+        {printerEntries.length > 0 && (
+          <div className={`mt-2 ${size === 4 ? 'grid grid-cols-3 gap-x-6 gap-y-1' : size === 2 ? 'grid grid-cols-2 gap-x-6 gap-y-1' : 'space-y-1'}`} style={{ width: 'fit-content' }}>
+            {printerEntries.map(([printerId, acc]) => (
+              <div key={printerId} className="flex items-center gap-2 text-xs">
                 <span className="text-bambu-gray truncate max-w-[100px]">
                   {printerMap.get(printerId) || `Printer ${printerId}`}
                 </span>
@@ -236,11 +291,13 @@ function TimeAccuracyWidget({
 
 function FilamentTypesWidget({
   stats,
+  size = 1,
 }: {
   stats: {
     total_prints: number;
     prints_by_filament_type: Record<string, number>;
   } | undefined;
+  size?: 1 | 2 | 4;
 }) {
   if (!stats?.prints_by_filament_type || Object.keys(stats.prints_by_filament_type).length === 0) {
     return <p className="text-bambu-gray text-center py-4">No filament data available</p>;
@@ -251,9 +308,39 @@ function FilamentTypesWidget({
     ([, a], [, b]) => b - a
   );
 
+  // Limit entries based on size
+  const maxEntries = size === 1 ? 5 : size === 2 ? 8 : 999;
+  const displayEntries = sortedEntries.slice(0, maxEntries);
+  const hasMore = sortedEntries.length > maxEntries;
+
+  // Use grid layout when expanded
+  if (size === 4 && displayEntries.length > 4) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {displayEntries.map(([type, count]) => {
+          const percentage = Math.round((count / (stats.total_prints || 1)) * 100);
+          return (
+            <div key={type}>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-white truncate max-w-[120px]">{type}</span>
+                <span className="text-bambu-gray">{count}</span>
+              </div>
+              <div className="h-2 bg-bambu-dark rounded-full">
+                <div
+                  className="h-full bg-bambu-green rounded-full transition-all"
+                  style={{ width: `${percentage}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      {sortedEntries.map(([type, count]) => {
+      {displayEntries.map(([type, count]) => {
         const percentage = Math.round((count / (stats.total_prints || 1)) * 100);
         return (
           <div key={type}>
@@ -270,12 +357,25 @@ function FilamentTypesWidget({
           </div>
         );
       })}
+      {hasMore && (
+        <p className="text-xs text-bambu-gray text-center pt-1">
+          +{sortedEntries.length - maxEntries} more types
+        </p>
+      )}
     </div>
   );
 }
 
-function PrintActivityWidget({ printDates }: { printDates: string[] }) {
-  return <PrintCalendar printDates={printDates} months={4} />;
+function PrintActivityWidget({
+  printDates,
+  size = 2,
+}: {
+  printDates: string[];
+  size?: 1 | 2 | 4;
+}) {
+  // Show more months when widget is larger - cell size auto-calculated
+  const months = size === 1 ? 3 : size === 2 ? 6 : 12;
+  return <PrintCalendar printDates={printDates} months={months} />;
 }
 
 function PrintsByPrinterWidget({
@@ -321,7 +421,7 @@ function FilamentTrendsWidget({
   return <FilamentTrends archives={archives} currency={currency} />;
 }
 
-function FailureAnalysisWidget() {
+function FailureAnalysisWidget({ size = 1 }: { size?: 1 | 2 | 4 }) {
   const { data: analysis, isLoading } = useQuery({
     queryKey: ['failureAnalysis'],
     queryFn: () => api.getFailureAnalysis({ days: 30 }),
@@ -339,50 +439,63 @@ function FailureAnalysisWidget() {
     return <p className="text-bambu-gray text-center py-4">No print data in the last 30 days</p>;
   }
 
-  const topReasons = Object.entries(analysis.failures_by_reason)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
+  // Show more reasons when expanded
+  const maxReasons = size === 1 ? 5 : size === 2 ? 8 : 999;
+  const allReasons = Object.entries(analysis.failures_by_reason).sort(([, a], [, b]) => b - a);
+  const topReasons = allReasons.slice(0, maxReasons);
+  const hasMore = allReasons.length > maxReasons;
 
   return (
-    <div className="space-y-4">
+    <div className={`${size >= 2 ? 'flex gap-8' : 'space-y-4'}`}>
       {/* Summary */}
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2">
-          <AlertTriangle className={`w-5 h-5 ${analysis.failure_rate > 20 ? 'text-red-400' : analysis.failure_rate > 10 ? 'text-yellow-400' : 'text-bambu-green'}`} />
-          <span className="text-2xl font-bold text-white">{analysis.failure_rate.toFixed(1)}%</span>
-          <span className="text-sm text-bambu-gray">failure rate</span>
+      <div className={size >= 2 ? 'flex-shrink-0' : ''}>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className={`w-5 h-5 ${analysis.failure_rate > 20 ? 'text-red-400' : analysis.failure_rate > 10 ? 'text-yellow-400' : 'text-bambu-green'}`} />
+            <span className={`font-bold text-white ${size >= 2 ? 'text-3xl' : 'text-2xl'}`}>{analysis.failure_rate.toFixed(1)}%</span>
+          </div>
         </div>
-        <div className="text-sm text-bambu-gray">
+        <div className="text-sm text-bambu-gray mt-1">
           {analysis.failed_prints} / {analysis.total_prints} prints failed
         </div>
+        {/* Trend indicator */}
+        {analysis.trend && analysis.trend.length >= 2 && (
+          <div className={`${size >= 2 ? 'mt-4' : 'mt-2 pt-2 border-t border-bambu-dark-tertiary'}`}>
+            <div className="flex items-center gap-2 text-sm">
+              <TrendingDown className={`w-4 h-4 ${
+                analysis.trend[analysis.trend.length - 1].failure_rate < analysis.trend[analysis.trend.length - 2].failure_rate
+                  ? 'text-bambu-green'
+                  : 'text-red-400'
+              }`} />
+              <span className="text-bambu-gray">
+                Last week: {analysis.trend[analysis.trend.length - 1].failure_rate.toFixed(1)}%
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Top Failure Reasons */}
+      {/* Failure Reasons */}
       {topReasons.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-bambu-gray font-medium">Top Failure Reasons</p>
-          {topReasons.map(([reason, count]) => (
-            <div key={reason} className="flex items-center justify-between text-sm">
-              <span className="text-white truncate max-w-[200px]">{reason || 'Unknown'}</span>
-              <span className="text-bambu-gray">{count}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Trend indicator */}
-      {analysis.trend && analysis.trend.length >= 2 && (
-        <div className="pt-2 border-t border-bambu-dark-tertiary">
-          <div className="flex items-center gap-2 text-sm">
-            <TrendingDown className={`w-4 h-4 ${
-              analysis.trend[analysis.trend.length - 1].failure_rate < analysis.trend[analysis.trend.length - 2].failure_rate
-                ? 'text-bambu-green'
-                : 'text-red-400'
-            }`} />
-            <span className="text-bambu-gray">
-              Last week: {analysis.trend[analysis.trend.length - 1].failure_rate.toFixed(1)}%
-            </span>
+        <div className={`flex-1 ${size >= 2 ? 'border-l border-bambu-dark-tertiary pl-8' : 'pt-2'}`}>
+          <p className="text-xs text-bambu-gray font-medium mb-2">
+            {size >= 2 ? 'Failure Reasons' : 'Top Failure Reasons'}
+          </p>
+          <div className={`${size === 4 ? 'grid grid-cols-2 gap-x-6 gap-y-1' : 'space-y-1'}`}>
+            {topReasons.map(([reason, count]) => (
+              <div key={reason} className="flex items-center justify-between text-sm">
+                <span className={`text-white truncate ${size === 4 ? 'max-w-[200px]' : 'max-w-[160px]'}`}>
+                  {reason || 'Unknown'}
+                </span>
+                <span className="text-bambu-gray ml-2">{count}</span>
+              </div>
+            ))}
           </div>
+          {hasMore && (
+            <p className="text-xs text-bambu-gray mt-2">
+              +{allReasons.length - maxReasons} more reasons
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -473,6 +586,7 @@ export function StatsPage() {
 
   // Define dashboard widgets
   // Sizes: 1 = quarter (1/4), 2 = half (1/2), 4 = full width
+  // Widgets can use render functions to receive the current size for responsive content
   const widgets: DashboardWidget[] = [
     {
       id: 'quick-stats',
@@ -483,31 +597,31 @@ export function StatsPage() {
     {
       id: 'success-rate',
       title: 'Success Rate',
-      component: <SuccessRateWidget stats={stats} />,
+      component: (size) => <SuccessRateWidget stats={stats} printerMap={printerMap} size={size} />,
       defaultSize: 1,
     },
     {
       id: 'time-accuracy',
       title: 'Time Accuracy',
-      component: <TimeAccuracyWidget stats={stats} printerMap={printerMap} />,
+      component: (size) => <TimeAccuracyWidget stats={stats} printerMap={printerMap} size={size} />,
       defaultSize: 1,
     },
     {
       id: 'filament-types',
       title: 'Filament Types',
-      component: <FilamentTypesWidget stats={stats} />,
+      component: (size) => <FilamentTypesWidget stats={stats} size={size} />,
       defaultSize: 1,
     },
     {
       id: 'failure-analysis',
       title: 'Failure Analysis (30 days)',
-      component: <FailureAnalysisWidget />,
+      component: (size) => <FailureAnalysisWidget size={size} />,
       defaultSize: 1,
     },
     {
       id: 'print-activity',
       title: 'Print Activity',
-      component: <PrintActivityWidget printDates={printDates} />,
+      component: (size) => <PrintActivityWidget printDates={printDates} size={size} />,
       defaultSize: 2,
     },
     {

@@ -22,7 +22,8 @@ import { Button } from './Button';
 export interface DashboardWidget {
   id: string;
   title: string;
-  component: ReactNode;
+  /** Render function that receives the current size for responsive content */
+  component: ReactNode | ((size: 1 | 2 | 4) => ReactNode);
   defaultVisible?: boolean;
   defaultSize?: 1 | 2 | 4; // 1 = quarter, 2 = half, 4 = full width (default)
 }
@@ -50,7 +51,7 @@ interface LayoutState {
 function SortableWidget({
   id,
   title,
-  children,
+  component,
   isHidden,
   size,
   onToggleVisibility,
@@ -58,7 +59,7 @@ function SortableWidget({
 }: {
   id: string;
   title: string;
-  children: ReactNode;
+  component: ReactNode | ((size: 1 | 2 | 4) => ReactNode);
   isHidden: boolean;
   size: 1 | 2 | 4;
   onToggleVisibility: () => void;
@@ -127,7 +128,9 @@ function SortableWidget({
         </div>
       </div>
       {/* Widget Content */}
-      <div className="p-4">{children}</div>
+      <div className="p-4">
+        {typeof component === 'function' ? component(size) : component}
+      </div>
     </div>
   );
 }
@@ -329,13 +332,12 @@ export function Dashboard({ widgets, storageKey, columns = 4, hideControls = fal
                 key={widget.id}
                 id={widget.id}
                 title={widget.title}
+                component={widget.component}
                 isHidden={layout.hidden.includes(widget.id)}
                 size={layout.sizes[widget.id] || 2}
                 onToggleVisibility={() => toggleVisibility(widget.id)}
                 onToggleSize={() => toggleSize(widget.id)}
-              >
-                {widget.component}
-              </SortableWidget>
+              />
             ))}
           </div>
         </SortableContext>
