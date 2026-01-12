@@ -168,6 +168,10 @@ async def update_queue_item(
         if not result.scalar_one_or_none():
             raise HTTPException(400, "Printer not found")
 
+    # Serialize ams_mapping to JSON for TEXT column storage
+    if "ams_mapping" in update_data:
+        update_data["ams_mapping"] = json.dumps(update_data["ams_mapping"]) if update_data["ams_mapping"] else None
+
     for field, value in update_data.items():
         setattr(item, field, value)
 

@@ -825,6 +825,7 @@ export interface PrintQueueItemUpdate {
   require_previous_success?: boolean;
   auto_off_after?: boolean;
   manual_start?: boolean;
+  ams_mapping?: number[];
 }
 
 // MQTT Logging types

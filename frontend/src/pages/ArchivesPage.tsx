@@ -687,7 +687,7 @@ function ArchiveCard({
                 onClick={() => setShowReprint(true)}
               >
                 <Printer className="w-3 h-3 flex-shrink-0" />
-                <span className="hidden sm:inline">Print</span>
+                <span className="hidden sm:inline">Reprint</span>
               </Button>
               <Button
                 variant="secondary"

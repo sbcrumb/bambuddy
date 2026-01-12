@@ -34,6 +34,7 @@ class PrintQueueItemUpdate(BaseModel):
     require_previous_success: bool | None = None
     auto_off_after: bool | None = None
     manual_start: bool | None = None
+    ams_mapping: list[int] | None = None
 
 
 class PrintQueueItemResponse(BaseModel):
