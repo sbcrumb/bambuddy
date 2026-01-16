@@ -1941,7 +1941,7 @@ class BambuMQTTClient:
     ):
         """Start a print job on the printer.
 
-        The file should already be uploaded to /cache/ on the printer via FTP.
+        The file should already be uploaded to the printer's root directory via FTP.
 
         Args:
             filename: Name of the uploaded file

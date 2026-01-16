@@ -2,6 +2,16 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
+## [0.1.6b13] - 2026-01-16
+
+### Fixed
+- **Queue prints failing on A1 printers** - Fixed "MicroSD Card read/write exception error" when starting prints from queue:
+  - Root cause: Queue uploaded files to `/cache/` but print command referenced root `/`
+  - Queue now uploads to root directory like archive reprint does
+  - Added filename cleaning (handles `.gcode.3mf` double extensions)
+  - Added pre-delete of existing files to avoid FTP 553 errors
+  - Fixes [#86](https://github.com/maziggy/bambuddy/issues/86)
+
 ## [0.1.6b12] - 2026-01-16
 
 ### Added

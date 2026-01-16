@@ -13,7 +13,7 @@ from backend.app.models.archive import PrintArchive
 from backend.app.models.print_queue import PrintQueueItem
 from backend.app.models.printer import Printer
 from backend.app.models.smart_plug import SmartPlug
-from backend.app.services.bambu_ftp import get_ftp_retry_settings, upload_file_async, with_ftp_retry
+from backend.app.services.bambu_ftp import delete_file_async, get_ftp_retry_settings, upload_file_async, with_ftp_retry
 from backend.app.services.printer_manager import printer_manager
 from backend.app.services.tasmota import tasmota_service
 
@@ -268,11 +268,31 @@ class PrintScheduler:
             return
 
         # Upload file to printer via FTP
-        remote_filename = archive.filename
-        remote_path = f"/cache/{remote_filename}"
+        # Use a clean filename to avoid issues with double extensions like .gcode.3mf
+        base_name = archive.filename
+        if base_name.endswith(".gcode.3mf"):
+            base_name = base_name[:-10]  # Remove .gcode.3mf
+        elif base_name.endswith(".3mf"):
+            base_name = base_name[:-4]  # Remove .3mf
+        remote_filename = f"{base_name}.3mf"
+        # Upload to root directory (not /cache/) - the start_print command references
+        # files by name only (ftp://{filename}), so they must be in the root
+        remote_path = f"/{remote_filename}"
 
         # Get FTP retry settings
         ftp_retry_enabled, ftp_retry_count, ftp_retry_delay, ftp_timeout = await get_ftp_retry_settings()
+
+        # Delete existing file if present (avoids 553 error on overwrite)
+        try:
+            await delete_file_async(
+                printer.ip_address,
+                printer.access_code,
+                remote_path,
+                socket_timeout=ftp_timeout,
+                printer_model=printer.model,
+            )
+        except Exception:
+            pass  # File may not exist, that's fine
 
         try:
             if ftp_retry_enabled:
