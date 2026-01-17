@@ -16,7 +16,7 @@ UTCDatetime = Annotated[datetime | None, PlainSerializer(serialize_utc_datetime)
 
 
 class PrintQueueItemCreate(BaseModel):
-    printer_id: int
+    printer_id: int | None = None  # None = unassigned, user assigns later
     archive_id: int
     scheduled_time: datetime | None = None  # None = ASAP (next when idle)
     require_previous_success: bool = False
@@ -39,7 +39,7 @@ class PrintQueueItemUpdate(BaseModel):
 
 class PrintQueueItemResponse(BaseModel):
     id: int
-    printer_id: int
+    printer_id: int | None  # None = unassigned
     archive_id: int
     position: int
     scheduled_time: UTCDatetime

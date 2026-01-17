@@ -64,7 +64,7 @@ def _enrich_response(item: PrintQueueItem) -> PrintQueueItemResponse:
 
 @router.get("/", response_model=list[PrintQueueItemResponse])
 async def list_queue(
-    printer_id: int | None = Query(None, description="Filter by printer"),
+    printer_id: int | None = Query(None, description="Filter by printer (-1 for unassigned)"),
     status: str | None = Query(None, description="Filter by status"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -72,11 +72,15 @@ async def list_queue(
     query = (
         select(PrintQueueItem)
         .options(selectinload(PrintQueueItem.archive), selectinload(PrintQueueItem.printer))
-        .order_by(PrintQueueItem.printer_id, PrintQueueItem.position)
+        .order_by(PrintQueueItem.printer_id.nulls_first(), PrintQueueItem.position)
     )
 
     if printer_id is not None:
-        query = query.where(PrintQueueItem.printer_id == printer_id)
+        if printer_id == -1:
+            # Special value: filter for unassigned items
+            query = query.where(PrintQueueItem.printer_id.is_(None))
+        else:
+            query = query.where(PrintQueueItem.printer_id == printer_id)
     if status:
         query = query.where(PrintQueueItem.status == status)
 
@@ -91,22 +95,31 @@ async def add_to_queue(
     db: AsyncSession = Depends(get_db),
 ):
     """Add an item to the print queue."""
-    # Validate printer exists
-    result = await db.execute(select(Printer).where(Printer.id == data.printer_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(400, "Printer not found")
+    # Validate printer exists (if assigned)
+    if data.printer_id is not None:
+        result = await db.execute(select(Printer).where(Printer.id == data.printer_id))
+        if not result.scalar_one_or_none():
+            raise HTTPException(400, "Printer not found")
 
     # Validate archive exists
     result = await db.execute(select(PrintArchive).where(PrintArchive.id == data.archive_id))
     if not result.scalar_one_or_none():
         raise HTTPException(400, "Archive not found")
 
-    # Get next position for this printer
-    result = await db.execute(
-        select(func.max(PrintQueueItem.position))
-        .where(PrintQueueItem.printer_id == data.printer_id)
-        .where(PrintQueueItem.status == "pending")
-    )
+    # Get next position for this printer (or for unassigned items)
+    if data.printer_id is not None:
+        result = await db.execute(
+            select(func.max(PrintQueueItem.position))
+            .where(PrintQueueItem.printer_id == data.printer_id)
+            .where(PrintQueueItem.status == "pending")
+        )
+    else:
+        # For unassigned items, get max position across all unassigned
+        result = await db.execute(
+            select(func.max(PrintQueueItem.position))
+            .where(PrintQueueItem.printer_id.is_(None))
+            .where(PrintQueueItem.status == "pending")
+        )
     max_pos = result.scalar() or 0
 
     item = PrintQueueItem(
@@ -127,7 +140,7 @@ async def add_to_queue(
     # Load relationships for response
     await db.refresh(item, ["archive", "printer"])
 
-    logger.info(f"Added archive {data.archive_id} to queue for printer {data.printer_id}")
+    logger.info(f"Added archive {data.archive_id} to queue for printer {data.printer_id or 'unassigned'}")
 
     # MQTT relay - publish queue job added
     try:
@@ -176,8 +189,8 @@ async def update_queue_item(
 
     update_data = data.model_dump(exclude_unset=True)
 
-    # Validate new printer_id if being changed
-    if "printer_id" in update_data:
+    # Validate new printer_id if being changed (and not None)
+    if "printer_id" in update_data and update_data["printer_id"] is not None:
         result = await db.execute(select(Printer).where(Printer.id == update_data["printer_id"]))
         if not result.scalar_one_or_none():
             raise HTTPException(400, "Printer not found")

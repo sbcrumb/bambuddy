@@ -17,7 +17,7 @@ export function EditQueueItemModal({ item, onClose }: EditQueueItemModalProps) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const [printerId, setPrinterId] = useState<number>(item.printer_id);
+  const [printerId, setPrinterId] = useState<number | null>(item.printer_id);
 
   // Check if scheduled_time is a "placeholder" far-future date (more than 6 months out)
   const isPlaceholderDate = item.scheduled_time &&
@@ -69,8 +69,8 @@ export function EditQueueItemModal({ item, onClose }: EditQueueItemModalProps) {
   // Fetch printer status when a printer is selected
   const { data: printerStatus } = useQuery({
     queryKey: ['printer-status', printerId],
-    queryFn: () => api.getPrinterStatus(printerId),
-    enabled: !!printerId,
+    queryFn: () => api.getPrinterStatus(printerId!),
+    enabled: printerId !== null,
   });
 
   // Clear manual mappings when printer changes (but not on initial load)
@@ -370,21 +370,31 @@ export function EditQueueItemModal({ item, onClose }: EditQueueItemModalProps) {
                   No printers configured
                 </div>
               ) : (
-                <select
-                  className="w-full px-3 py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
-                  value={printerId}
-                  onChange={(e) => setPrinterId(Number(e.target.value))}
-                  required
-                >
-                  {printers?.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    className={`w-full px-3 py-2 bg-bambu-dark border rounded-lg text-white focus:border-bambu-green focus:outline-none ${
+                      printerId === null ? 'border-orange-400' : 'border-bambu-dark-tertiary'
+                    }`}
+                    value={printerId ?? ''}
+                    onChange={(e) => setPrinterId(e.target.value ? Number(e.target.value) : null)}
+                  >
+                    <option value="">-- Select a printer --</option>
+                    {printers?.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                  {printerId === null && (
+                    <p className="text-xs text-orange-400 mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Assign a printer to enable printing
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
             {/* Filament Mapping Section */}
-            {printerId && hasFilamentReqs && (
+            {printerId !== null && hasFilamentReqs && (
               <div>
                 <button
                   type="button"

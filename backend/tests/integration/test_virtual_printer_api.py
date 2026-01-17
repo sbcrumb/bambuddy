@@ -53,11 +53,31 @@ class TestVirtualPrinterSettingsAPI:
     @pytest.mark.integration
     async def test_update_mode(self, async_client: AsyncClient):
         """Verify mode can be updated."""
+        response = await async_client.put("/api/v1/settings/virtual-printer?mode=review")
+
+        assert response.status_code == 200
+        result = response.json()
+        assert result["mode"] == "review"
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_update_mode_to_print_queue(self, async_client: AsyncClient):
+        """Verify mode can be set to print_queue."""
+        response = await async_client.put("/api/v1/settings/virtual-printer?mode=print_queue")
+
+        assert response.status_code == 200
+        result = response.json()
+        assert result["mode"] == "print_queue"
+
+    @pytest.mark.asyncio
+    @pytest.mark.integration
+    async def test_update_mode_legacy_queue_maps_to_review(self, async_client: AsyncClient):
+        """Verify legacy 'queue' mode is normalized to 'review'."""
         response = await async_client.put("/api/v1/settings/virtual-printer?mode=queue")
 
         assert response.status_code == 200
         result = response.json()
-        assert result["mode"] == "queue"
+        assert result["mode"] == "review"  # Legacy queue maps to review
 
     @pytest.mark.asyncio
     @pytest.mark.integration

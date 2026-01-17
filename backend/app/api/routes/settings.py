@@ -513,7 +513,7 @@ async def export_backup(
         for qi in queue_items:
             backup["print_queue"].append(
                 {
-                    "printer_serial": printer_id_to_serial.get(qi.printer_id),
+                    "printer_serial": printer_id_to_serial.get(qi.printer_id) if qi.printer_id else None,
                     "archive_hash": archive_id_to_hash.get(qi.archive_id),
                     "project_name": project_id_to_name.get(qi.project_id) if qi.project_id else None,
                     "position": qi.position,
@@ -521,6 +521,7 @@ async def export_backup(
                     "require_previous_success": qi.require_previous_success,
                     "auto_off_after": qi.auto_off_after,
                     "manual_start": qi.manual_start,
+                    "ams_mapping": qi.ams_mapping,
                     "status": qi.status,
                     "started_at": qi.started_at.isoformat() if qi.started_at else None,
                     "completed_at": qi.completed_at.isoformat() if qi.completed_at else None,
@@ -1519,32 +1520,44 @@ async def import_backup(
         skipped_details["print_queue"] = []
 
         for qi_data in backup["print_queue"]:
-            printer_serial = qi_data.get("printer_serial")
+            printer_serial = qi_data.get("printer_serial")  # Can be None for unassigned items
             archive_hash = qi_data.get("archive_hash")
 
-            if not printer_serial or not archive_hash:
+            # Archive is required, but printer can be None (unassigned)
+            if not archive_hash:
                 skipped["print_queue"] += 1
                 continue
 
-            printer_id = printer_serial_to_id.get(printer_serial)
+            # Look up printer_id (None if unassigned or printer not found)
+            printer_id = printer_serial_to_id.get(printer_serial) if printer_serial else None
             archive_id = archive_hash_to_id.get(archive_hash)
 
-            if not printer_id or not archive_id:
+            # Archive must exist, but printer is optional (unassigned items)
+            if not archive_id:
                 skipped["print_queue"] += 1
-                skipped_details["print_queue"].append(f"{printer_serial}/{archive_hash[:8] if archive_hash else 'N/A'}")
+                skipped_details["print_queue"].append(
+                    f"{printer_serial or 'unassigned'}/{archive_hash[:8] if archive_hash else 'N/A'}"
+                )
+                continue
+
+            # If printer_serial was specified but printer not found, skip
+            if printer_serial and not printer_id:
+                skipped["print_queue"] += 1
+                skipped_details["print_queue"].append(f"{printer_serial}/{archive_hash[:8]}")
                 continue
 
             project_name = qi_data.get("project_name")
             project_id = project_name_to_id.get(project_name) if project_name else None
 
             qi = PrintQueueItem(
-                printer_id=printer_id,
+                printer_id=printer_id,  # Can be None for unassigned items
                 archive_id=archive_id,
                 project_id=project_id,
                 position=qi_data.get("position", 0),
                 require_previous_success=qi_data.get("require_previous_success", False),
                 auto_off_after=qi_data.get("auto_off_after", False),
                 manual_start=qi_data.get("manual_start", False),
+                ams_mapping=qi_data.get("ams_mapping"),
                 status=qi_data.get("status", "pending"),
                 error_message=qi_data.get("error_message"),
             )
@@ -1887,11 +1900,16 @@ async def update_virtual_printer_settings(
     new_model = model if model is not None else current_model
 
     # Validate mode
-    if new_mode not in ("immediate", "queue"):
+    # "review" is the new name for "queue" (pending review before archiving)
+    # "print_queue" archives and adds to print queue (unassigned)
+    if new_mode not in ("immediate", "queue", "review", "print_queue"):
         return JSONResponse(
             status_code=400,
-            content={"detail": "Mode must be 'immediate' or 'queue'"},
+            content={"detail": "Mode must be 'immediate', 'review', or 'print_queue'"},
         )
+    # Normalize legacy "queue" to "review" for storage
+    if new_mode == "queue":
+        new_mode = "review"
 
     # Validate model
     if model is not None and model not in VIRTUAL_PRINTER_MODELS:

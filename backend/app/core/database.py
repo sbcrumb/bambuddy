@@ -405,6 +405,50 @@ async def run_migrations(conn):
     except Exception:
         pass
 
+    # Migration: Make printer_id nullable in print_queue for unassigned queue items
+    # SQLite doesn't support ALTER COLUMN, so we need to recreate the table
+    try:
+        # Check if printer_id is already nullable by trying to insert NULL
+        # This is a safe check that won't affect existing data
+        result = await conn.execute(text("SELECT sql FROM sqlite_master WHERE type='table' AND name='print_queue'"))
+        row = result.fetchone()
+        if row and "printer_id INTEGER NOT NULL" in (row[0] or ""):
+            # Need to migrate - printer_id is currently NOT NULL
+            await conn.execute(
+                text("""
+                CREATE TABLE print_queue_new (
+                    id INTEGER PRIMARY KEY,
+                    printer_id INTEGER REFERENCES printers(id) ON DELETE CASCADE,
+                    archive_id INTEGER NOT NULL REFERENCES print_archives(id) ON DELETE CASCADE,
+                    project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+                    position INTEGER DEFAULT 0,
+                    scheduled_time DATETIME,
+                    manual_start BOOLEAN DEFAULT 0,
+                    require_previous_success BOOLEAN DEFAULT 0,
+                    auto_off_after BOOLEAN DEFAULT 0,
+                    ams_mapping TEXT,
+                    status VARCHAR(20) DEFAULT 'pending',
+                    started_at DATETIME,
+                    completed_at DATETIME,
+                    error_message TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            )
+            await conn.execute(
+                text("""
+                INSERT INTO print_queue_new
+                SELECT id, printer_id, archive_id, project_id, position, scheduled_time,
+                       manual_start, require_previous_success, auto_off_after, ams_mapping,
+                       status, started_at, completed_at, error_message, created_at
+                FROM print_queue
+            """)
+            )
+            await conn.execute(text("DROP TABLE print_queue"))
+            await conn.execute(text("ALTER TABLE print_queue_new RENAME TO print_queue"))
+    except Exception:
+        pass
+
 
 async def seed_notification_templates():
     """Seed default notification templates if they don't exist."""

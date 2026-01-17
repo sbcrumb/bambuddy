@@ -6,7 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { SwitchbarPopover } from './SwitchbarPopover';
 import { useQuery } from '@tanstack/react-query';
-import { api, supportApi } from '../api/client';
+import { api, supportApi, pendingUploadsApi } from '../api/client';
 import { getIconByName } from './IconPicker';
 import { useIsMobile } from '../hooks/useIsMobile';
 
@@ -125,6 +125,26 @@ export function Layout() {
     staleTime: 60 * 1000, // 1 minute
     refetchInterval: 60 * 1000, // Refresh every minute
   });
+
+  // Fetch pending queue items count for badge
+  const { data: queueItems } = useQuery({
+    queryKey: ['queue', 'pending'],
+    queryFn: () => api.getQueue(undefined, 'pending'),
+    staleTime: 5 * 1000, // 5 seconds
+    refetchInterval: 5 * 1000, // Refresh every 5 seconds
+    refetchOnWindowFocus: true,
+  });
+  const pendingQueueCount = queueItems?.length ?? 0;
+
+  // Fetch pending uploads count for archive badge (virtual printer review items)
+  const { data: pendingUploadsData } = useQuery({
+    queryKey: ['pending-uploads', 'count'],
+    queryFn: pendingUploadsApi.getCount,
+    staleTime: 5 * 1000, // 5 seconds
+    refetchInterval: 5 * 1000, // Refresh every 5 seconds
+    refetchOnWindowFocus: true,
+  });
+  const pendingUploadsCount = pendingUploadsData?.count ?? 0;
 
   // Calculate debug duration client-side for real-time updates
   const [debugDuration, setDebugDuration] = useState<number | null>(null);
@@ -418,6 +438,11 @@ export function Layout() {
                 if (!navItem) return null;
 
                 const { to, icon: Icon, labelKey } = navItem;
+                const showQueueBadge = id === 'queue' && pendingQueueCount > 0;
+                const showArchiveBadge = id === 'archives' && pendingUploadsCount > 0;
+                const badgeCount = showQueueBadge ? pendingQueueCount : showArchiveBadge ? pendingUploadsCount : 0;
+                const showBadge = showQueueBadge || showArchiveBadge;
+
                 return (
                   <li
                     key={id}
@@ -449,7 +474,16 @@ export function Layout() {
                       {sidebarExpanded && !isMobile && (
                         <GripVertical className="w-4 h-4 flex-shrink-0 opacity-0 group-hover:opacity-50 cursor-grab active:cursor-grabbing -ml-1" />
                       )}
-                      <Icon className="w-5 h-5 flex-shrink-0" />
+                      <div className="relative">
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        {showBadge && (
+                          <span className={`absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-bold rounded-full ${
+                            showArchiveBadge ? 'bg-blue-500 text-white' : 'bg-yellow-500 text-black'
+                          }`}>
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </span>
+                        )}
+                      </div>
                       {(isMobile || sidebarExpanded) && <span>{t(labelKey)}</span>}
                     </NavLink>
                   </li>

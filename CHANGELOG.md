@@ -2,6 +2,27 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
+## [0.1.6b15] - 2026-01-17
+
+### Added
+- **Virtual Printer "Queue" mode** - New mode that archives files and adds them to the print queue:
+  - Three modes now available: Archive (immediate), Review (pending list), Queue (print queue)
+  - Queue mode creates unassigned queue items that can be assigned to a printer later
+  - Renamed old "Queue for Review" to "Review" to avoid confusion with print queue
+- **Unassigned queue items** - Print queue now supports items without an assigned printer:
+  - Queue items can be created without a printer (printer_id nullable)
+  - Queue page shows "Unassigned" filter option and highlights unassigned items in orange
+  - Edit modal allows assigning a printer to unassigned items
+  - Useful for virtual printer uploads where target printer is decided later
+- **Sidebar badge indicators** - Visual indicators on sidebar icons for pending items:
+  - Queue icon shows yellow badge with count of pending queue items
+  - Archive icon shows blue badge with count of pending uploads (virtual printer review items)
+  - Badges auto-update every 5 seconds and on window focus
+
+### Changed
+- Virtual printer mode labels: "Immediate" → "Archive", "Queue for Review" → "Review"
+- Queue page printer filter now includes "Unassigned" option
+
 ## [0.1.6b14] - 2026-01-17
 
 ### Fixed

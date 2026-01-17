@@ -12,7 +12,7 @@ export function VirtualPrinterSettings() {
 
   const [localEnabled, setLocalEnabled] = useState(false);
   const [localAccessCode, setLocalAccessCode] = useState('');
-  const [localMode, setLocalMode] = useState<'immediate' | 'queue'>('immediate');
+  const [localMode, setLocalMode] = useState<'immediate' | 'review' | 'print_queue'>('immediate');
   const [localModel, setLocalModel] = useState('3DPrinter-X1-Carbon');
   const [showAccessCode, setShowAccessCode] = useState(false);
   const [pendingAction, setPendingAction] = useState<'toggle' | 'accessCode' | 'mode' | 'model' | null>(null);
@@ -34,14 +34,19 @@ export function VirtualPrinterSettings() {
   useEffect(() => {
     if (settings) {
       setLocalEnabled(settings.enabled);
-      setLocalMode(settings.mode);
+      // Map legacy 'queue' mode to 'review'
+      let mode: 'immediate' | 'review' | 'print_queue' = settings.mode === 'queue' ? 'review' : settings.mode;
+      if (mode !== 'immediate' && mode !== 'review' && mode !== 'print_queue') {
+        mode = 'immediate'; // fallback
+      }
+      setLocalMode(mode);
       setLocalModel(settings.model);
     }
   }, [settings]);
 
   // Update mutation
   const updateMutation = useMutation({
-    mutationFn: (data: { enabled?: boolean; access_code?: string; mode?: 'immediate' | 'queue'; model?: string }) =>
+    mutationFn: (data: { enabled?: boolean; access_code?: string; mode?: 'immediate' | 'review' | 'print_queue'; model?: string }) =>
       virtualPrinterApi.updateSettings(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['virtual-printer-settings'] });
@@ -53,7 +58,9 @@ export function VirtualPrinterSettings() {
       // Revert local state on error
       if (settings) {
         setLocalEnabled(settings.enabled);
-        setLocalMode(settings.mode);
+        // Map legacy 'queue' mode to 'review'
+        const mode = settings.mode === 'queue' ? 'review' : settings.mode;
+        setLocalMode(mode === 'print_queue' || mode === 'review' ? mode : 'immediate');
         setLocalModel(settings.model);
       }
       setPendingAction(null);
@@ -96,7 +103,7 @@ export function VirtualPrinterSettings() {
     setLocalAccessCode(''); // Clear after saving
   };
 
-  const handleModeChange = (mode: 'immediate' | 'queue') => {
+  const handleModeChange = (mode: 'immediate' | 'review' | 'print_queue') => {
     setLocalMode(mode);
     setPendingAction('mode');
     updateMutation.mutate({ mode });
@@ -251,10 +258,10 @@ export function VirtualPrinterSettings() {
             </p>
           </div>
 
-          {/* Archive Mode */}
+          {/* Mode */}
           <div className="py-3 border-t border-bambu-dark-tertiary">
-            <div className="text-white font-medium mb-2">Archive Mode</div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="text-white font-medium mb-2">Mode</div>
+            <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => handleModeChange('immediate')}
                 disabled={pendingAction === 'mode'}
@@ -264,20 +271,32 @@ export function VirtualPrinterSettings() {
                     : 'border-bambu-dark-tertiary hover:border-bambu-gray'
                 }`}
               >
-                <div className="text-white font-medium">Immediate</div>
-                <div className="text-xs text-bambu-gray">Archive files as soon as they are uploaded</div>
+                <div className="text-white font-medium">Archive</div>
+                <div className="text-xs text-bambu-gray">Archive files immediately</div>
               </button>
               <button
-                onClick={() => handleModeChange('queue')}
+                onClick={() => handleModeChange('review')}
                 disabled={pendingAction === 'mode'}
                 className={`p-3 rounded-lg border text-left transition-colors ${
-                  localMode === 'queue'
+                  localMode === 'review'
                     ? 'border-bambu-green bg-bambu-green/10'
                     : 'border-bambu-dark-tertiary hover:border-bambu-gray'
                 }`}
               >
-                <div className="text-white font-medium">Queue for Review</div>
-                <div className="text-xs text-bambu-gray">Review and tag files before archiving</div>
+                <div className="text-white font-medium">Review</div>
+                <div className="text-xs text-bambu-gray">Review and tag before archiving</div>
+              </button>
+              <button
+                onClick={() => handleModeChange('print_queue')}
+                disabled={pendingAction === 'mode'}
+                className={`p-3 rounded-lg border text-left transition-colors ${
+                  localMode === 'print_queue'
+                    ? 'border-bambu-green bg-bambu-green/10'
+                    : 'border-bambu-dark-tertiary hover:border-bambu-gray'
+                }`}
+              >
+                <div className="text-white font-medium">Queue</div>
+                <div className="text-xs text-bambu-gray">Archive and add to print queue</div>
               </button>
             </div>
           </div>

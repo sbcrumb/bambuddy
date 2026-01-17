@@ -195,9 +195,9 @@ function SortableQueueItem({
           </div>
 
           <div className="flex items-center gap-3 text-sm text-bambu-gray">
-            <span className="flex items-center gap-1.5">
+            <span className={`flex items-center gap-1.5 ${item.printer_id === null ? 'text-orange-400' : ''}`}>
               <Printer className="w-3.5 h-3.5" />
-              {item.printer_name || `Printer #${item.printer_id}`}
+              {item.printer_id === null ? 'Unassigned' : (item.printer_name || `Printer #${item.printer_id}`)}
             </span>
             {item.print_time_seconds && (
               <span className="flex items-center gap-1.5">
@@ -600,10 +600,16 @@ export function QueuePage() {
       <div className="flex items-center gap-4 mb-6">
         <select
           className="px-3 py-2 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
-          value={filterPrinter || ''}
-          onChange={(e) => setFilterPrinter(e.target.value ? Number(e.target.value) : null)}
+          value={filterPrinter === -1 ? 'unassigned' : (filterPrinter || '')}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === 'unassigned') setFilterPrinter(-1);
+            else if (val === '') setFilterPrinter(null);
+            else setFilterPrinter(Number(val));
+          }}
         >
           <option value="">All Printers</option>
+          <option value="unassigned">Unassigned</option>
           {printers?.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}

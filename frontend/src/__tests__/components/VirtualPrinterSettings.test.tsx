@@ -99,11 +99,11 @@ describe('VirtualPrinterSettings', () => {
       });
     });
 
-    it('renders archive mode section', async () => {
+    it('renders mode section', async () => {
       render(<VirtualPrinterSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText('Archive Mode')).toBeInTheDocument();
+        expect(screen.getByText('Mode')).toBeInTheDocument();
       });
     });
 
@@ -259,28 +259,48 @@ describe('VirtualPrinterSettings', () => {
     });
   });
 
-  describe('archive mode', () => {
-    it('renders immediate mode option', async () => {
+  describe('mode selection', () => {
+    it('renders Archive mode option', async () => {
       render(<VirtualPrinterSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText('Immediate')).toBeInTheDocument();
-        expect(
-          screen.getByText('Archive files as soon as they are uploaded')
-        ).toBeInTheDocument();
+        expect(screen.getByText('Archive')).toBeInTheDocument();
+        expect(screen.getByText('Archive files immediately')).toBeInTheDocument();
       });
     });
 
-    it('renders queue mode option', async () => {
+    it('renders Review mode option', async () => {
       render(<VirtualPrinterSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText('Queue for Review')).toBeInTheDocument();
-        expect(screen.getByText('Review and tag files before archiving')).toBeInTheDocument();
+        expect(screen.getByText('Review')).toBeInTheDocument();
+        expect(screen.getByText('Review and tag before archiving')).toBeInTheDocument();
       });
     });
 
-    it('highlights current mode', async () => {
+    it('renders Queue mode option', async () => {
+      render(<VirtualPrinterSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Queue')).toBeInTheDocument();
+        expect(screen.getByText('Archive and add to print queue')).toBeInTheDocument();
+      });
+    });
+
+    it('highlights current mode (review)', async () => {
+      vi.mocked(virtualPrinterApi.getSettings).mockResolvedValue(
+        createMockSettings({ mode: 'review' })
+      );
+
+      render(<VirtualPrinterSettings />);
+
+      await waitFor(() => {
+        const reviewButton = screen.getByText('Review').closest('button');
+        expect(reviewButton?.className).toContain('border-bambu-green');
+      });
+    });
+
+    it('highlights current mode (legacy queue maps to review)', async () => {
       vi.mocked(virtualPrinterApi.getSettings).mockResolvedValue(
         createMockSettings({ mode: 'queue' })
       );
@@ -288,30 +308,52 @@ describe('VirtualPrinterSettings', () => {
       render(<VirtualPrinterSettings />);
 
       await waitFor(() => {
-        const queueButton = screen.getByText('Queue for Review').closest('button');
-        expect(queueButton?.className).toContain('border-bambu-green');
+        const reviewButton = screen.getByText('Review').closest('button');
+        expect(reviewButton?.className).toContain('border-bambu-green');
       });
     });
 
-    it('changes mode on click', async () => {
+    it('changes mode to review on click', async () => {
       const user = userEvent.setup();
       vi.mocked(virtualPrinterApi.updateSettings).mockResolvedValue(
-        createMockSettings({ mode: 'queue' })
+        createMockSettings({ mode: 'review' })
       );
 
       render(<VirtualPrinterSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText('Queue for Review')).toBeInTheDocument();
+        expect(screen.getByText('Review')).toBeInTheDocument();
       });
 
-      const queueButton = screen.getByText('Queue for Review').closest('button');
+      const reviewButton = screen.getByText('Review').closest('button');
+      if (reviewButton) {
+        await user.click(reviewButton);
+      }
+
+      await waitFor(() => {
+        expect(virtualPrinterApi.updateSettings).toHaveBeenCalledWith({ mode: 'review' });
+      });
+    });
+
+    it('changes mode to print_queue on click', async () => {
+      const user = userEvent.setup();
+      vi.mocked(virtualPrinterApi.updateSettings).mockResolvedValue(
+        createMockSettings({ mode: 'print_queue' })
+      );
+
+      render(<VirtualPrinterSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Queue')).toBeInTheDocument();
+      });
+
+      const queueButton = screen.getByText('Queue').closest('button');
       if (queueButton) {
         await user.click(queueButton);
       }
 
       await waitFor(() => {
-        expect(virtualPrinterApi.updateSettings).toHaveBeenCalledWith({ mode: 'queue' });
+        expect(virtualPrinterApi.updateSettings).toHaveBeenCalledWith({ mode: 'print_queue' });
       });
     });
   });

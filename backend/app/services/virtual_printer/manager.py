@@ -290,11 +290,16 @@ class VirtualPrinterManager:
         # Store file reference for MQTT correlation
         self._pending_files[file_path.name] = file_path
 
-        # In immediate mode, archive right away
-        # In queue mode, create pending upload record
+        # Handle based on mode:
+        # - immediate: archive right away
+        # - review: create pending upload record for user review before archiving
+        # - print_queue: archive and add to print queue (unassigned)
         if self._mode == "immediate":
             await self._archive_file(file_path, source_ip)
+        elif self._mode == "print_queue":
+            await self._add_to_print_queue(file_path, source_ip)
         else:
+            # "review" mode (or legacy "queue" mode)
             await self._queue_file(file_path, source_ip)
 
     async def _on_print_command(self, filename: str, data: dict) -> None:
@@ -407,6 +412,74 @@ class VirtualPrinterManager:
 
         except Exception as e:
             logger.error(f"Error queueing file: {e}")
+
+    async def _add_to_print_queue(self, file_path: Path, source_ip: str) -> None:
+        """Archive file and add to print queue (unassigned).
+
+        Args:
+            file_path: Path to the 3MF file
+            source_ip: IP address of uploader
+        """
+        if not self._session_factory:
+            logger.error("Cannot add to print queue: no database session factory configured")
+            return
+
+        # Only process 3MF files
+        if file_path.suffix.lower() != ".3mf":
+            logger.debug(f"Skipping non-3MF file: {file_path.name}")
+            self._pending_files.pop(file_path.name, None)
+            try:
+                file_path.unlink()
+            except Exception:
+                pass
+            return
+
+        try:
+            from backend.app.models.print_queue import PrintQueueItem
+            from backend.app.services.archive import ArchiveService
+
+            async with self._session_factory() as db:
+                service = ArchiveService(db)
+
+                # First, archive the print
+                archive = await service.archive_print(
+                    printer_id=None,  # No physical printer
+                    source_file=file_path,
+                    print_data={
+                        "status": "archived",
+                        "source": "virtual_printer",
+                        "source_ip": source_ip,
+                    },
+                )
+
+                if archive:
+                    logger.info(f"Archived virtual printer upload: {archive.id} - {archive.print_name}")
+
+                    # Now add to print queue (unassigned)
+                    queue_item = PrintQueueItem(
+                        printer_id=None,  # Unassigned - user will assign later
+                        archive_id=archive.id,
+                        position=1,  # Will be adjusted when assigned to a printer
+                        status="pending",
+                    )
+                    db.add(queue_item)
+                    await db.commit()
+
+                    logger.info(f"Added to print queue (unassigned): queue_id={queue_item.id}, archive_id={archive.id}")
+
+                    # Clean up uploaded file (it's now copied to archive)
+                    try:
+                        file_path.unlink()
+                    except Exception:
+                        pass
+
+                    # Remove from pending
+                    self._pending_files.pop(file_path.name, None)
+                else:
+                    logger.error(f"Failed to archive file: {file_path.name}")
+
+        except Exception as e:
+            logger.error(f"Error adding to print queue: {e}")
 
     def get_status(self) -> dict:
         """Get virtual printer status.

@@ -814,7 +814,7 @@ export interface DiscoveredTasmotaDevice {
 // Print Queue types
 export interface PrintQueueItem {
   id: number;
-  printer_id: number;
+  printer_id: number | null;  // null = unassigned
   archive_id: number;
   position: number;
   scheduled_time: string | null;
@@ -834,7 +834,7 @@ export interface PrintQueueItem {
 }
 
 export interface PrintQueueItemCreate {
-  printer_id: number;
+  printer_id?: number | null;  // null = unassigned
   archive_id: number;
   scheduled_time?: string | null;
   require_previous_success?: boolean;
@@ -844,7 +844,7 @@ export interface PrintQueueItemCreate {
 }
 
 export interface PrintQueueItemUpdate {
-  printer_id?: number;
+  printer_id?: number | null;  // null = unassign
   position?: number;
   scheduled_time?: string | null;
   require_previous_success?: boolean;
@@ -2516,7 +2516,7 @@ export const discoveryApi = {
 export interface VirtualPrinterStatus {
   enabled: boolean;
   running: boolean;
-  mode: 'immediate' | 'queue';
+  mode: 'immediate' | 'queue' | 'review' | 'print_queue';  // 'queue' is legacy, normalized to 'review'
   name: string;
   serial: string;
   model: string;
@@ -2527,7 +2527,7 @@ export interface VirtualPrinterStatus {
 export interface VirtualPrinterSettings {
   enabled: boolean;
   access_code_set: boolean;
-  mode: 'immediate' | 'queue';
+  mode: 'immediate' | 'queue' | 'review' | 'print_queue';  // 'queue' is legacy, normalized to 'review'
   model: string;
   status: VirtualPrinterStatus;
 }
@@ -2558,7 +2558,7 @@ export const virtualPrinterApi = {
   updateSettings: (data: {
     enabled?: boolean;
     access_code?: string;
-    mode?: 'immediate' | 'queue';
+    mode?: 'immediate' | 'review' | 'print_queue';
     model?: string;
   }) => {
     const params = new URLSearchParams();
