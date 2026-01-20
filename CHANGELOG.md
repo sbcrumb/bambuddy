@@ -9,6 +9,13 @@ All notable changes to Bambuddy will be documented in this file.
   - Each viewer has its own remembered position and size
   - New viewers are automatically offset to prevent stacking
   - Printer-specific persistence in localStorage
+- **Application Log Viewer** - View and filter application logs in real-time from System Information page:
+  - Start/Stop live streaming with 2-second auto-refresh
+  - Filter by log level (DEBUG, INFO, WARNING, ERROR)
+  - Text search across messages and logger names
+  - Clear logs with one click
+  - Expandable multi-line log entries (stack traces, etc.)
+  - Auto-scroll to follow new entries
 - **Unified Print Modal** - Consolidated three separate modals into one unified component:
   - Single modal handles reprint, add-to-queue, and edit-queue-item operations
   - Consistent UI/UX across all print operations

@@ -3078,6 +3078,19 @@ export interface DebugLoggingState {
   duration_seconds: number | null;
 }
 
+export interface LogEntry {
+  timestamp: string;
+  level: string;
+  logger_name: string;
+  message: string;
+}
+
+export interface LogsResponse {
+  entries: LogEntry[];
+  total_in_file: number;
+  filtered_count: number;
+}
+
 // Support API
 export const supportApi = {
   getDebugLoggingState: () =>
@@ -3111,4 +3124,16 @@ export const supportApi = {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
   },
+
+  getLogs: (params?: { limit?: number; level?: string; search?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.level) searchParams.set('level', params.level);
+    if (params?.search) searchParams.set('search', params.search);
+    const query = searchParams.toString();
+    return request<LogsResponse>(`/support/logs${query ? `?${query}` : ''}`);
+  },
+
+  clearLogs: () =>
+    request<{ message: string }>('/support/logs', { method: 'DELETE' }),
 };
