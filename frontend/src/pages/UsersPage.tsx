@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X, Plus, Edit2, Trash2, Save, Loader2, Users as UsersIcon, Shield } from 'lucide-react';
+import { X, Plus, Edit2, Trash2, Save, Loader2, Users as UsersIcon, Shield, ArrowLeft } from 'lucide-react';
 import { api } from '../api/client';
 import type { UserCreate, UserUpdate } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +11,7 @@ import { Card, CardContent, CardHeader } from '../components/Card';
 import { ConfirmModal } from '../components/ConfirmModal';
 
 export function UsersPage() {
+  const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -128,14 +130,23 @@ export function UsersPage() {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <UsersIcon className="w-6 h-6 text-bambu-green" />
-            User Management
-          </h1>
-          <p className="text-sm text-bambu-gray mt-1">
-            Manage users and their access to your Bambuddy instance
-          </p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/settings?tab=users')}
+            className="p-2 rounded-lg bg-bambu-dark-secondary hover:bg-bambu-dark-tertiary text-bambu-gray hover:text-white transition-colors"
+            title="Back to Settings"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+              <UsersIcon className="w-6 h-6 text-bambu-green" />
+              User Management
+            </h1>
+            <p className="text-sm text-bambu-gray mt-1">
+              Manage users and their access to your Bambuddy instance
+            </p>
+          </div>
         </div>
         <Button
           onClick={() => {
@@ -199,8 +210,8 @@ export function UsersPage() {
                         </select>
                       ) : (
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          user.role === 'admin' 
-                            ? 'bg-purple-500/20 text-purple-300' 
+                          user.role === 'admin'
+                            ? 'bg-purple-500/20 text-purple-300'
                             : 'bg-blue-500/20 text-blue-300'
                         }`}>
                           {user.role}
@@ -209,8 +220,8 @@ export function UsersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        user.is_active 
-                          ? 'bg-bambu-green/20 text-bambu-green' 
+                        user.is_active
+                          ? 'bg-bambu-green/20 text-bambu-green'
                           : 'bg-red-500/20 text-red-400'
                       }`}>
                         {user.is_active ? 'Active' : 'Inactive'}

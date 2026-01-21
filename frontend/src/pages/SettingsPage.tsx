@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Plus, Plug, AlertTriangle, RotateCcw, Bell, Download, RefreshCw, ExternalLink, Globe, Droplets, Thermometer, FileText, Edit2, Send, CheckCircle, XCircle, History, Trash2, Upload, Zap, TrendingUp, Calendar, DollarSign, Power, PowerOff, Key, Copy, Database, Info, X, Shield, Printer, Cylinder, Wifi, Home, Video, Users, Lock, Unlock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDateOnly } from '../utils/date';
@@ -29,9 +29,13 @@ import { useTheme, type ThemeStyle, type DarkBackground, type LightBackground, t
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Palette } from 'lucide-react';
 
+const validTabs = ['general', 'network', 'plugs', 'notifications', 'filament', 'apikeys', 'virtual-printer', 'users'] as const;
+type TabType = typeof validTabs[number];
+
 export function SettingsPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { t, i18n } = useTranslation();
   const { showToast, showPersistentToast, dismissToast } = useToast();
   const { authEnabled, user, refreshAuth } = useAuth();
@@ -50,7 +54,22 @@ export function SettingsPage() {
   const [editingTemplate, setEditingTemplate] = useState<NotificationTemplate | null>(null);
   const [showLogViewer, setShowLogViewer] = useState(false);
   const [defaultView, setDefaultViewState] = useState<string>(getDefaultView());
-  const [activeTab, setActiveTab] = useState<'general' | 'network' | 'plugs' | 'notifications' | 'filament' | 'apikeys' | 'virtual-printer' | 'users'>('general');
+
+  // Initialize tab from URL params
+  const tabParam = searchParams.get('tab');
+  const initialTab = tabParam && validTabs.includes(tabParam as TabType) ? tabParam as TabType : 'general';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+
+  // Update URL when tab changes
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (tab === 'general') {
+      searchParams.delete('tab');
+    } else {
+      searchParams.set('tab', tab);
+    }
+    setSearchParams(searchParams, { replace: true });
+  };
   const [showCreateAPIKey, setShowCreateAPIKey] = useState(false);
   const [newAPIKeyName, setNewAPIKeyName] = useState('');
   const [newAPIKeyPermissions, setNewAPIKeyPermissions] = useState({
@@ -481,7 +500,7 @@ export function SettingsPage() {
       {/* Tab Navigation */}
       <div className="flex gap-1 mb-6 border-b border-bambu-dark-tertiary overflow-x-auto">
         <button
-          onClick={() => setActiveTab('general')}
+          onClick={() => handleTabChange('general')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
             activeTab === 'general'
               ? 'text-bambu-green border-bambu-green'
@@ -491,7 +510,7 @@ export function SettingsPage() {
           General
         </button>
         <button
-          onClick={() => setActiveTab('plugs')}
+          onClick={() => handleTabChange('plugs')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'plugs'
               ? 'text-bambu-green border-bambu-green'
@@ -507,7 +526,7 @@ export function SettingsPage() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('notifications')}
+          onClick={() => handleTabChange('notifications')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'notifications'
               ? 'text-bambu-green border-bambu-green'
@@ -523,7 +542,7 @@ export function SettingsPage() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('filament')}
+          onClick={() => handleTabChange('filament')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'filament'
               ? 'text-bambu-green border-bambu-green'
@@ -534,7 +553,7 @@ export function SettingsPage() {
           Filament
         </button>
         <button
-          onClick={() => setActiveTab('network')}
+          onClick={() => handleTabChange('network')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'network'
               ? 'text-bambu-green border-bambu-green'
@@ -546,7 +565,7 @@ export function SettingsPage() {
           <span className={`w-2 h-2 rounded-full ${mqttStatus?.enabled ? 'bg-green-400' : 'bg-gray-500'}`} />
         </button>
         <button
-          onClick={() => setActiveTab('apikeys')}
+          onClick={() => handleTabChange('apikeys')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'apikeys'
               ? 'text-bambu-green border-bambu-green'
@@ -562,7 +581,7 @@ export function SettingsPage() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('virtual-printer')}
+          onClick={() => handleTabChange('virtual-printer')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'virtual-printer'
               ? 'text-bambu-green border-bambu-green'
@@ -574,7 +593,7 @@ export function SettingsPage() {
           <span className={`w-2 h-2 rounded-full ${virtualPrinterRunning ? 'bg-green-400' : 'bg-gray-500'}`} />
         </button>
         <button
-          onClick={() => setActiveTab('users')}
+          onClick={() => handleTabChange('users')}
           className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
             activeTab === 'users'
               ? 'text-bambu-green border-bambu-green'
@@ -2973,8 +2992,8 @@ export function SettingsPage() {
                             </p>
                           </div>
                           <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                            user.role === 'admin' 
-                              ? 'bg-purple-500/20 text-purple-300' 
+                            user.role === 'admin'
+                              ? 'bg-purple-500/20 text-purple-300'
                               : 'bg-blue-500/20 text-blue-300'
                           }`}>
                             {user.role === 'admin' ? 'Admin' : 'User'}
@@ -2992,7 +3011,7 @@ export function SettingsPage() {
                         <Users className="w-4 h-4" />
                         Manage Users
                       </Button>
-                      
+
                       {user?.role === 'admin' && (
                         <Button
                           onClick={() => setShowDisableAuthConfirm(true)}
