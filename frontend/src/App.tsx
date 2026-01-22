@@ -82,6 +82,9 @@ function SetupRoute({ children }: { children: React.ReactNode }) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
+  // If auth is already enabled, redirect to login
+  // Otherwise, allow access to setup page (even if setup was completed before)
+  // This allows users to enable auth later if they skipped it during initial setup
   if (authEnabled) {
     return <Navigate to="/login" replace />;
   }

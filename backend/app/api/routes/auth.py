@@ -42,6 +42,26 @@ async def set_auth_enabled(db: AsyncSession, enabled: bool) -> None:
     # Note: Don't commit here - let get_db handle it or commit explicitly in the route
 
 
+async def is_setup_completed(db: AsyncSession) -> bool:
+    """Check if setup has been completed."""
+    result = await db.execute(select(Settings).where(Settings.key == "setup_completed"))
+    setting = result.scalar_one_or_none()
+    return setting and setting.value.lower() == "true"
+
+
+async def set_setup_completed(db: AsyncSession, completed: bool) -> None:
+    """Set setup completed status."""
+    from sqlalchemy import func
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    stmt = sqlite_insert(Settings).values(key="setup_completed", value="true" if completed else "false")
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["key"], set_={"value": "true" if completed else "false", "updated_at": func.now()}
+    )
+    await db.execute(stmt)
+    # Note: Don't commit here - let get_db handle it or commit explicitly in the route
+
+
 @router.post("/setup", response_model=SetupResponse)
 async def setup_auth(request: SetupRequest, db: AsyncSession = Depends(get_db)):
     """First-time setup: enable/disable authentication and create admin user."""
@@ -70,48 +90,61 @@ async def setup_auth(request: SetupRequest, db: AsyncSession = Depends(get_db)):
         admin_created = False
 
         if request.auth_enabled:
-            if not request.admin_username or not request.admin_password:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Admin username and password are required when enabling authentication",
-                )
+            # Check if admin users already exist
+            admin_users_result = await db.execute(select(User).where(User.role == "admin"))
+            existing_admin_users = list(admin_users_result.scalars().all())
+            has_admin_users = len(existing_admin_users) > 0
 
-            # Check if admin already exists
-            existing_admin = await get_user_by_username(db, request.admin_username)
-            if existing_admin:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Admin user already exists",
-                )
+            if has_admin_users:
+                # Admin users already exist, just enable auth (don't create new admin)
+                logger.info(f"Admin users already exist ({len(existing_admin_users)} found), enabling authentication without creating new admin")
+                admin_created = False
+            else:
+                # No admin users exist, require admin credentials to create first admin
+                if not request.admin_username or not request.admin_password:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Admin username and password are required when enabling authentication (no admin users exist)",
+                    )
 
-            # Create admin user FIRST (before enabling auth)
-            try:
-                logger.info(f"Creating admin user: {request.admin_username}")
-                admin_user = User(
-                    username=request.admin_username,
-                    password_hash=get_password_hash(request.admin_password),
-                    role="admin",
-                    is_active=True,
-                )
-                db.add(admin_user)
-                logger.info(f"Admin user added to session: {request.admin_username}")
-                admin_created = True
-            except Exception as e:
-                await db.rollback()
-                logger.error(f"Failed to create admin user: {e}", exc_info=True)
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to create admin user: {str(e)}",
-                )
+                # Check if username already exists (shouldn't happen if no admin users exist, but check anyway)
+                existing_user = await get_user_by_username(db, request.admin_username)
+                if existing_user:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="User with this username already exists",
+                    )
 
-        # Set auth enabled and commit everything together
+                # Create admin user FIRST (before enabling auth)
+                try:
+                    logger.info(f"Creating admin user: {request.admin_username}")
+                    admin_user = User(
+                        username=request.admin_username,
+                        password_hash=get_password_hash(request.admin_password),
+                        role="admin",
+                        is_active=True,
+                    )
+                    db.add(admin_user)
+                    logger.info(f"Admin user added to session: {request.admin_username}")
+                    admin_created = True
+                except Exception as e:
+                    await db.rollback()
+                    logger.error(f"Failed to create admin user: {e}", exc_info=True)
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to create admin user: {str(e)}",
+                    )
+
+        # Set auth enabled and mark setup as completed
         await set_auth_enabled(db, request.auth_enabled)
+        await set_setup_completed(db, True)
         await db.commit()
 
         if admin_created:
             await db.refresh(admin_user)
             logger.info(f"Admin user created successfully: {admin_user.id}")
 
+        logger.info(f"Setup completed: auth_enabled={request.auth_enabled}, admin_created={admin_created}")
         return SetupResponse(auth_enabled=request.auth_enabled, admin_created=admin_created)
     except HTTPException:
         raise
@@ -128,7 +161,10 @@ async def setup_auth(request: SetupRequest, db: AsyncSession = Depends(get_db)):
 async def get_auth_status(db: AsyncSession = Depends(get_db)):
     """Get authentication status (public endpoint)."""
     auth_enabled = await is_auth_enabled(db)
-    return {"auth_enabled": auth_enabled, "requires_setup": not auth_enabled}
+    setup_completed = await is_setup_completed(db)
+    # Only require setup if it hasn't been completed yet
+    requires_setup = not setup_completed
+    return {"auth_enabled": auth_enabled, "requires_setup": requires_setup}
 
 
 @router.post("/disable", response_model=dict)

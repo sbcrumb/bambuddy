@@ -4,11 +4,14 @@ import { useMutation } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
+import { Info } from 'lucide-react';
 
 export function SetupPage() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { mode } = useTheme();
+  const { refreshAuth } = useAuth();
   const [authEnabled, setAuthEnabled] = useState(false);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
@@ -21,10 +24,18 @@ export function SetupPage() {
         admin_username: authEnabled ? adminUsername : undefined,
         admin_password: authEnabled ? adminPassword : undefined,
       }),
-    onSuccess: (data) => {
-      if (data.auth_enabled && data.admin_created) {
-        showToast('Authentication enabled and admin user created');
-        navigate('/login');
+    onSuccess: async (data) => {
+      // Refresh auth status after setup
+      await refreshAuth();
+      
+      if (data.auth_enabled) {
+        if (data.admin_created) {
+          showToast('Authentication enabled and admin user created');
+          navigate('/login');
+        } else {
+          showToast('Authentication enabled using existing admin users');
+          navigate('/login');
+        }
       } else {
         showToast('Setup completed');
         navigate('/');
@@ -39,17 +50,21 @@ export function SetupPage() {
     e.preventDefault();
 
     if (authEnabled) {
-      if (!adminUsername || !adminPassword) {
-        showToast('Please enter admin username and password', 'error');
-        return;
-      }
-      if (adminPassword !== confirmPassword) {
-        showToast('Passwords do not match', 'error');
-        return;
-      }
-      if (adminPassword.length < 6) {
-        showToast('Password must be at least 6 characters', 'error');
-        return;
+      // Only validate if credentials are provided
+      // If no credentials provided, backend will use existing admin users if they exist
+      if (adminUsername || adminPassword) {
+        if (!adminUsername || !adminPassword) {
+          showToast('Please enter both admin username and password, or leave both empty to use existing admin users', 'error');
+          return;
+        }
+        if (adminPassword !== confirmPassword) {
+          showToast('Passwords do not match', 'error');
+          return;
+        }
+        if (adminPassword.length < 6) {
+          showToast('Password must be at least 6 characters', 'error');
+          return;
+        }
       }
     }
 
@@ -92,55 +107,67 @@ export function SetupPage() {
 
             {authEnabled && (
               <div className="space-y-4 mt-4">
+                <div className="p-3 bg-bambu-dark-secondary/50 border border-bambu-dark-tertiary rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <Info className="w-4 h-4 text-bambu-green mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-bambu-gray">
+                      <p className="text-white font-medium mb-1">Admin Account</p>
+                      <p>
+                        If admin users already exist, authentication will be enabled using the existing admin accounts.
+                        Leave the fields below empty to use existing admins, or enter new credentials to create a new admin user.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label htmlFor="admin-username" className="block text-sm font-medium text-white mb-2">
-                    Admin Username
+                    Admin Username <span className="text-bambu-gray text-xs">(optional if admin users exist)</span>
                   </label>
                   <input
                     id="admin-username"
                     type="text"
-                    required
                     value={adminUsername}
                     onChange={(e) => setAdminUsername(e.target.value)}
                     className="block w-full px-4 py-3 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg text-white placeholder-bambu-gray focus:outline-none focus:ring-2 focus:ring-bambu-green/50 focus:border-bambu-green transition-colors"
-                    placeholder="Enter admin username"
+                    placeholder="Enter admin username (optional)"
                     autoComplete="username"
                   />
                 </div>
 
                 <div>
                   <label htmlFor="admin-password" className="block text-sm font-medium text-white mb-2">
-                    Admin Password
+                    Admin Password <span className="text-bambu-gray text-xs">(optional if admin users exist)</span>
                   </label>
                   <input
                     id="admin-password"
                     type="password"
-                    required
                     value={adminPassword}
                     onChange={(e) => setAdminPassword(e.target.value)}
                     className="block w-full px-4 py-3 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg text-white placeholder-bambu-gray focus:outline-none focus:ring-2 focus:ring-bambu-green/50 focus:border-bambu-green transition-colors"
-                    placeholder="Enter admin password"
+                    placeholder="Enter admin password (optional)"
                     minLength={6}
                     autoComplete="new-password"
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="confirm-password" className="block text-sm font-medium text-white mb-2">
-                    Confirm Password
-                  </label>
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="block w-full px-4 py-3 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg text-white placeholder-bambu-gray focus:outline-none focus:ring-2 focus:ring-bambu-green/50 focus:border-bambu-green transition-colors"
-                    placeholder="Confirm admin password"
-                    minLength={6}
-                    autoComplete="new-password"
-                  />
-                </div>
+                {adminPassword && (
+                  <div>
+                    <label htmlFor="confirm-password" className="block text-sm font-medium text-white mb-2">
+                      Confirm Password
+                    </label>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className="block w-full px-4 py-3 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg text-white placeholder-bambu-gray focus:outline-none focus:ring-2 focus:ring-bambu-green/50 focus:border-bambu-green transition-colors"
+                      placeholder="Confirm admin password"
+                      minLength={6}
+                      autoComplete="new-password"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -2996,7 +2996,11 @@ export function SettingsPage() {
                       </ul>
 
                       <Button
-                        onClick={() => navigate('/setup')}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          navigate('/setup');
+                        }}
                         className="w-full"
                       >
                         <Lock className="w-4 h-4" />

@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { api, getAuthToken, setAuthToken } from '../api/client';
 import type { UserResponse } from '../api/client';
 
 interface AuthContextType {
   user: UserResponse | null;
   authEnabled: boolean;
+  requiresSetup: boolean;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
@@ -17,12 +18,15 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [authEnabled, setAuthEnabled] = useState(false);
+  const [requiresSetup, setRequiresSetup] = useState(false);
   const [loading, setLoading] = useState(true);
+  const hasRedirectedRef = useRef(false);
 
   const checkAuthStatus = async () => {
     try {
       const status = await api.getAuthStatus();
       setAuthEnabled(status.auth_enabled);
+      setRequiresSetup(status.requires_setup);
 
       if (status.auth_enabled) {
         const token = getAuthToken();
@@ -41,10 +45,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         // Auth not enabled, allow access
         setUser(null);
-        // Check if setup is needed
-        if (status.requires_setup && window.location.pathname !== '/setup') {
-          window.location.href = '/setup';
-        }
       }
     } catch (error) {
       console.error('Failed to check auth status:', error);
@@ -56,8 +56,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    // Check auth status on mount
     checkAuthStatus();
   }, []);
+
+  // Separate effect to handle redirect only when setup is required
+  useEffect(() => {
+    // Only redirect if setup is truly required (first time setup)
+    // Don't redirect if user manually navigated to /setup or is on camera page
+    if (!loading && requiresSetup && !authEnabled) {
+      const currentPath = window.location.pathname;
+      // Only redirect if not already on setup page or camera page, and haven't redirected yet
+      if (currentPath !== '/setup' && !currentPath.startsWith('/camera/') && !hasRedirectedRef.current) {
+        hasRedirectedRef.current = true;
+        window.location.href = '/setup';
+      }
+    } else if (!requiresSetup) {
+      // Reset redirect flag when setup is no longer required
+      hasRedirectedRef.current = false;
+    }
+  }, [loading, requiresSetup, authEnabled]);
 
   const login = async (username: string, password: string) => {
     const response = await api.login({ username, password });
@@ -95,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         authEnabled,
+        requiresSetup,
         loading,
         login,
         logout,
