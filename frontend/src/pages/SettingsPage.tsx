@@ -1331,7 +1331,7 @@ export function SettingsPage() {
       {/* Network Tab */}
       {activeTab === 'network' && localSettings && (
       <div className="flex flex-col lg:flex-row gap-6">
-        {/* Left Column - FTP Retry & Home Assistant */}
+        {/* Left Column - External URL & FTP Retry */}
         <div className="flex-1 lg:max-w-xl space-y-4">
           {/* External URL */}
           <Card>
@@ -1459,6 +1459,10 @@ export function SettingsPage() {
             </CardContent>
           </Card>
 
+        </div>
+
+        {/* Right Column - Home Assistant & MQTT Publishing */}
+        <div className="flex-1 lg:max-w-xl space-y-4">
           {/* Home Assistant Integration */}
           <Card>
             <CardHeader>
@@ -1557,10 +1561,8 @@ export function SettingsPage() {
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Right Column - MQTT Publishing */}
-        <div className="flex-1 lg:max-w-xl space-y-4">
+          {/* MQTT Publishing */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
