@@ -80,6 +80,9 @@ class NotificationProvider(Base):
     on_ams_ht_humidity_high = Column(Boolean, default=False)  # AMS-HT humidity above threshold
     on_ams_ht_temperature_high = Column(Boolean, default=False)  # AMS-HT temperature above threshold
 
+    # Event triggers - Build plate detection
+    on_plate_not_empty = Column(Boolean, default=True)  # Objects detected on plate before print
+
     # Quiet hours (do not disturb)
     quiet_hours_enabled = Column(Boolean, default=False)
     quiet_hours_start = Column(String(5), nullable=True)  # HH:MM format, e.g., "22:00"

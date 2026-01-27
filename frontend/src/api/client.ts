@@ -1184,6 +1184,8 @@ export interface NotificationProvider {
   // AMS-HT environmental alarms
   on_ams_ht_humidity_high: boolean;
   on_ams_ht_temperature_high: boolean;
+  // Build plate detection
+  on_plate_not_empty: boolean;
   // Quiet hours
   quiet_hours_enabled: boolean;
   quiet_hours_start: string | null;
@@ -1224,6 +1226,8 @@ export interface NotificationProviderCreate {
   // AMS-HT environmental alarms
   on_ams_ht_humidity_high?: boolean;
   on_ams_ht_temperature_high?: boolean;
+  // Build plate detection
+  on_plate_not_empty?: boolean;
   // Quiet hours
   quiet_hours_enabled?: boolean;
   quiet_hours_start?: string | null;
@@ -1257,6 +1261,8 @@ export interface NotificationProviderUpdate {
   // AMS-HT environmental alarms
   on_ams_ht_humidity_high?: boolean;
   on_ams_ht_temperature_high?: boolean;
+  // Build plate detection
+  on_plate_not_empty?: boolean;
   // Quiet hours
   quiet_hours_enabled?: boolean;
   quiet_hours_start?: string | null;

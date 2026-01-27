@@ -124,6 +124,9 @@ export function NotificationProviderCard({ provider, onEdit }: NotificationProvi
             {provider.on_print_start && (
               <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded">Start</span>
             )}
+            {provider.on_plate_not_empty && (
+              <span className="px-2 py-0.5 bg-rose-600/20 text-rose-300 text-xs rounded">Plate Check</span>
+            )}
             {provider.on_print_complete && (
               <span className="px-2 py-0.5 bg-bambu-green/20 text-bambu-green text-xs rounded">Complete</span>
             )}
@@ -251,6 +254,17 @@ export function NotificationProviderCard({ provider, onEdit }: NotificationProvi
                   <Toggle
                     checked={provider.on_print_start}
                     onChange={(checked) => updateMutation.mutate({ on_print_start: checked })}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white">Plate Not Empty</p>
+                    <p className="text-xs text-bambu-gray">Objects detected before print</p>
+                  </div>
+                  <Toggle
+                    checked={provider.on_plate_not_empty ?? true}
+                    onChange={(checked) => updateMutation.mutate({ on_plate_not_empty: checked })}
                   />
                 </div>
 

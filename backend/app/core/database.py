@@ -288,6 +288,12 @@ async def run_migrations(conn):
     except Exception:
         pass
 
+    # Migration: Add plate not empty notification column to notification_providers
+    try:
+        await conn.execute(text("ALTER TABLE notification_providers ADD COLUMN on_plate_not_empty BOOLEAN DEFAULT 1"))
+    except Exception:
+        pass
+
     # Migration: Add notes column to projects (Phase 2)
     try:
         await conn.execute(text("ALTER TABLE projects ADD COLUMN notes TEXT"))
@@ -761,21 +767,32 @@ async def seed_notification_templates():
     from backend.app.models.notification_template import DEFAULT_TEMPLATES, NotificationTemplate
 
     async with async_session() as session:
-        # Check if templates already exist
-        result = await session.execute(select(NotificationTemplate).limit(1))
-        if result.scalar_one_or_none() is not None:
-            # Templates already seeded
-            return
+        # Get existing template event types
+        result = await session.execute(select(NotificationTemplate.event_type))
+        existing_types = {row[0] for row in result.fetchall()}
 
-        # Insert default templates
-        for template_data in DEFAULT_TEMPLATES:
-            template = NotificationTemplate(
-                event_type=template_data["event_type"],
-                name=template_data["name"],
-                title_template=template_data["title_template"],
-                body_template=template_data["body_template"],
-                is_default=True,
-            )
-            session.add(template)
+        if not existing_types:
+            # No templates exist - insert all defaults
+            for template_data in DEFAULT_TEMPLATES:
+                template = NotificationTemplate(
+                    event_type=template_data["event_type"],
+                    name=template_data["name"],
+                    title_template=template_data["title_template"],
+                    body_template=template_data["body_template"],
+                    is_default=True,
+                )
+                session.add(template)
+        else:
+            # Templates exist - only add missing ones
+            for template_data in DEFAULT_TEMPLATES:
+                if template_data["event_type"] not in existing_types:
+                    template = NotificationTemplate(
+                        event_type=template_data["event_type"],
+                        name=template_data["name"],
+                        title_template=template_data["title_template"],
+                        body_template=template_data["body_template"],
+                        is_default=True,
+                    )
+                    session.add(template)
 
         await session.commit()

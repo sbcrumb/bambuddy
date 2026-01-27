@@ -20,8 +20,12 @@ except ImportError:
     OPENCV_AVAILABLE = False
     logger.info("OpenCV not available - plate detection feature disabled")
 
-# Directory to store calibration reference images
-CALIBRATION_DIR = Path(__file__).parent.parent.parent.parent / "data" / "plate_calibration"
+
+def _get_calibration_dir() -> Path:
+    """Get the calibration directory from settings (ensures persistence in Docker)."""
+    from backend.app.core.config import settings
+
+    return settings.plate_calibration_dir
 
 
 class PlateDetectionResult:
@@ -93,8 +97,8 @@ class PlateDetector:
 
     def _get_metadata_path(self, printer_id: int) -> Path:
         """Get the path to the metadata JSON file for a printer."""
-        CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
-        return CALIBRATION_DIR / f"printer_{printer_id}_metadata.json"
+        _get_calibration_dir().mkdir(parents=True, exist_ok=True)
+        return _get_calibration_dir() / f"printer_{printer_id}_metadata.json"
 
     def _load_metadata(self, printer_id: int) -> dict:
         """Load metadata for a printer's references."""
@@ -119,35 +123,35 @@ class PlateDetector:
 
     def _get_reference_paths(self, printer_id: int) -> list[Path]:
         """Get all existing reference image paths for a printer."""
-        CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
+        _get_calibration_dir().mkdir(parents=True, exist_ok=True)
         paths = []
         for i in range(self.MAX_REFERENCES):
-            path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{i}.jpg"
+            path = _get_calibration_dir() / f"printer_{printer_id}_ref_{i}.jpg"
             if path.exists():
                 paths.append(path)
         return paths
 
     def _get_next_reference_slot(self, printer_id: int) -> Path:
         """Get the path for the next reference image slot (cycles through slots)."""
-        CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
+        _get_calibration_dir().mkdir(parents=True, exist_ok=True)
         # Find first empty slot, or use oldest (slot 0) and shift others
         for i in range(self.MAX_REFERENCES):
-            path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{i}.jpg"
+            path = _get_calibration_dir() / f"printer_{printer_id}_ref_{i}.jpg"
             if not path.exists():
                 return path
         # All slots full - return slot 0 (will be overwritten, but we rotate first)
-        return CALIBRATION_DIR / f"printer_{printer_id}_ref_0.jpg"
+        return _get_calibration_dir() / f"printer_{printer_id}_ref_0.jpg"
 
     def _rotate_references(self, printer_id: int) -> None:
         """Rotate references: delete oldest (0), shift others down."""
         # Delete slot 0
-        slot0 = CALIBRATION_DIR / f"printer_{printer_id}_ref_0.jpg"
+        slot0 = _get_calibration_dir() / f"printer_{printer_id}_ref_0.jpg"
         if slot0.exists():
             slot0.unlink()
         # Shift others down
         for i in range(1, self.MAX_REFERENCES):
-            old_path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{i}.jpg"
-            new_path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{i - 1}.jpg"
+            old_path = _get_calibration_dir() / f"printer_{printer_id}_ref_{i}.jpg"
+            new_path = _get_calibration_dir() / f"printer_{printer_id}_ref_{i - 1}.jpg"
             if old_path.exists():
                 old_path.rename(new_path)
 
@@ -172,7 +176,7 @@ class PlateDetector:
         result = []
 
         for i in range(self.MAX_REFERENCES):
-            path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{i}.jpg"
+            path = _get_calibration_dir() / f"printer_{printer_id}_ref_{i}.jpg"
             if path.exists():
                 ref_meta = refs.get(str(i), {})
                 result.append(
@@ -191,7 +195,7 @@ class PlateDetector:
         if index < 0 or index >= self.MAX_REFERENCES:
             return False
 
-        path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{index}.jpg"
+        path = _get_calibration_dir() / f"printer_{printer_id}_ref_{index}.jpg"
         if not path.exists():
             return False
 
@@ -210,7 +214,7 @@ class PlateDetector:
         if index < 0 or index >= self.MAX_REFERENCES:
             return False
 
-        path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{index}.jpg"
+        path = _get_calibration_dir() / f"printer_{printer_id}_ref_{index}.jpg"
         if not path.exists():
             return False
 
@@ -227,8 +231,8 @@ class PlateDetector:
 
         # Shift remaining references down to fill the gap
         for i in range(index + 1, self.MAX_REFERENCES):
-            old_img = CALIBRATION_DIR / f"printer_{printer_id}_ref_{i}.jpg"
-            new_img = CALIBRATION_DIR / f"printer_{printer_id}_ref_{i - 1}.jpg"
+            old_img = _get_calibration_dir() / f"printer_{printer_id}_ref_{i}.jpg"
+            new_img = _get_calibration_dir() / f"printer_{printer_id}_ref_{i - 1}.jpg"
             if old_img.exists():
                 old_img.rename(new_img)
                 # Also shift metadata
@@ -245,7 +249,7 @@ class PlateDetector:
 
         Returns JPEG bytes or None if not found.
         """
-        path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{index}.jpg"
+        path = _get_calibration_dir() / f"printer_{printer_id}_ref_{index}.jpg"
         if not path.exists():
             return None
 
@@ -333,7 +337,7 @@ class PlateDetector:
 
             # Save to next available slot
             slot_index = num_existing
-            reference_path = CALIBRATION_DIR / f"printer_{printer_id}_ref_{slot_index}.jpg"
+            reference_path = _get_calibration_dir() / f"printer_{printer_id}_ref_{slot_index}.jpg"
             cv2.imwrite(str(reference_path), frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
 
             # Save metadata

@@ -68,6 +68,12 @@ DEFAULT_TEMPLATES = [
         "body_template": "{printer}\n{error_detail}",
     },
     {
+        "event_type": "plate_not_empty",
+        "name": "Plate Not Empty",
+        "title_template": "Plate Not Empty - Print Paused",
+        "body_template": "{printer}: Objects detected on build plate. Print has been paused. Clear plate and resume.",
+    },
+    {
         "event_type": "filament_low",
         "name": "Filament Low",
         "title_template": "Filament Low",

@@ -239,6 +239,10 @@ _reprint_archives: set[int] = set()
 # Milestones are 25, 50, 75. Value of 0 means no milestone notified yet for current print.
 _last_progress_milestone: dict[int, int] = {}
 
+# Track HMS errors that have been notified: {printer_id: set of error codes}
+# This prevents sending duplicate notifications for the same error
+_notified_hms_errors: dict[int, set[str]] = {}
+
 
 async def _get_plug_energy(plug, db) -> dict | None:
     """Get energy from plug regardless of type (Tasmota or Home Assistant).
@@ -443,6 +447,85 @@ async def on_printer_status_change(printer_id: int, state: PrinterState):
     elif progress < 5:
         # Reset milestone tracking when print restarts or new print begins
         _last_progress_milestone[printer_id] = 0
+
+    # Check for new HMS errors and send notifications
+    current_hms_errors = getattr(state, "hms_errors", []) or []
+    if current_hms_errors:
+        # Build set of current error codes (using attr for uniqueness)
+        current_error_codes = {f"{e.attr:08x}" for e in current_hms_errors}
+        previously_notified = _notified_hms_errors.get(printer_id, set())
+
+        # Find new errors that haven't been notified yet
+        new_error_codes = current_error_codes - previously_notified
+
+        if new_error_codes:
+            # Get the actual new errors for the notification
+            new_errors = [e for e in current_hms_errors if f"{e.attr:08x}" in new_error_codes]
+
+            try:
+                async with async_session() as db:
+                    from backend.app.models.printer import Printer
+
+                    result = await db.execute(select(Printer).where(Printer.id == printer_id))
+                    printer = result.scalar_one_or_none()
+                    printer_name = printer.name if printer else f"Printer {printer_id}"
+
+                    # Format error details for notification
+                    # Module 0x07 = AMS/Filament, 0x05 = Nozzle, 0x0C = Motion Controller, etc.
+                    module_names = {
+                        0x03: "Print/Task",
+                        0x05: "Nozzle/Extruder",
+                        0x07: "AMS/Filament",
+                        0x0C: "Motion Controller",
+                        0x12: "Chamber",
+                    }
+
+                    from backend.app.services.hms_errors import get_error_description
+
+                    for error in new_errors:
+                        module_name = module_names.get(error.module, f"Module 0x{error.module:02X}")
+                        # Build short code like "0700_8010"
+                        error_code_int = int(error.code.replace("0x", ""), 16) if error.code else 0
+                        short_code = f"{(error.attr >> 16) & 0xFFFF:04X}_{error_code_int:04X}"
+
+                        error_type = f"{module_name} Error"
+                        # Look up human-readable description
+                        description = get_error_description(short_code)
+                        error_detail = description if description else f"Error code: {short_code}"
+
+                        await notification_service.on_printer_error(
+                            printer_id, printer_name, error_type, db, error_detail
+                        )
+
+                    logging.getLogger(__name__).info(
+                        f"[HMS] Sent notification for {len(new_errors)} new error(s) on printer {printer_id}"
+                    )
+
+                    # Also publish to MQTT relay
+                    printer_info = printer_manager.get_printer(printer_id)
+                    if printer_info:
+                        errors_data = [
+                            {
+                                "code": e.code,
+                                "attr": e.attr,
+                                "module": e.module,
+                                "severity": e.severity,
+                            }
+                            for e in new_errors
+                        ]
+                        await mqtt_relay.on_printer_error(
+                            printer_id, printer_info.name, printer_info.serial_number, errors_data
+                        )
+
+            except Exception as e:
+                logging.getLogger(__name__).warning(f"HMS error notification failed: {e}")
+
+            # Update tracking with all current errors
+            _notified_hms_errors[printer_id] = current_error_codes
+    else:
+        # No HMS errors - clear tracking so future errors get notified
+        if printer_id in _notified_hms_errors:
+            _notified_hms_errors.pop(printer_id, None)
 
     await ws_manager.send_printer_status(
         printer_id,
@@ -684,13 +767,11 @@ async def on_print_start(printer_id: int, data: dict):
 
                     # Also send push notification
                     try:
-                        await notification_service.send_notification(
+                        await notification_service.on_plate_not_empty(
                             printer_id=printer_id,
                             printer_name=printer.name,
-                            event_type="plate_not_empty",
-                            title=f"⚠️ {printer.name}: Plate Not Empty!",
-                            body="Objects detected on build plate. Print has been paused. Please clear the plate and resume.",
                             db=db,
+                            difference_percent=plate_result.difference_percent,
                         )
                     except Exception as notif_err:
                         logger.warning(f"[PLATE CHECK] Failed to send notification: {notif_err}")

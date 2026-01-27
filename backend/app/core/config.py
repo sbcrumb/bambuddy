@@ -16,6 +16,11 @@ _app_dir = Path(__file__).resolve().parent.parent.parent.parent
 _data_dir_env = os.environ.get("DATA_DIR")
 _data_dir = Path(_data_dir_env) if _data_dir_env else _app_dir
 
+# Plate calibration directory - special handling to maintain backwards compatibility
+# Docker: DATA_DIR/plate_calibration (e.g., /data/plate_calibration)
+# Local dev: project_root/data/plate_calibration (original location)
+_plate_cal_dir = Path(_data_dir_env) / "plate_calibration" if _data_dir_env else _app_dir / "data" / "plate_calibration"
+
 # Log directory - use LOG_DIR env var if set, otherwise use app_dir/logs
 _log_dir_env = os.environ.get("LOG_DIR")
 _log_dir = Path(_log_dir_env) if _log_dir_env else _app_dir / "logs"
@@ -52,6 +57,7 @@ class Settings(BaseSettings):
     # Paths
     base_dir: Path = _data_dir  # For backwards compatibility
     archive_dir: Path = _data_dir / "archive"
+    plate_calibration_dir: Path = _plate_cal_dir  # Plate detection references
     static_dir: Path = _app_dir / "static"  # Static files are part of app, not data
     log_dir: Path = _log_dir
     database_url: str = f"sqlite+aiosqlite:///{_db_path}"
@@ -72,6 +78,7 @@ settings = Settings()
 
 # Ensure directories exist
 settings.archive_dir.mkdir(exist_ok=True)
+settings.plate_calibration_dir.mkdir(exist_ok=True)
 settings.static_dir.mkdir(exist_ok=True)
 if settings.log_to_file:
     settings.log_dir.mkdir(exist_ok=True)

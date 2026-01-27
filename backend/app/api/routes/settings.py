@@ -242,6 +242,7 @@ async def export_backup(
     include_smart_plugs: bool = Query(True, description="Include smart plugs"),
     include_external_links: bool = Query(True, description="Include external sidebar links"),
     include_printers: bool = Query(False, description="Include printers (without access codes)"),
+    include_plate_calibration: bool = Query(False, description="Include plate detection reference images"),
     include_filaments: bool = Query(False, description="Include filament inventory"),
     include_maintenance: bool = Query(
         False, description="Include maintenance types, per-printer settings, and history"
@@ -305,6 +306,7 @@ async def export_backup(
                     "on_ams_temperature_high": getattr(p, "on_ams_temperature_high", False),
                     "on_ams_ht_humidity_high": getattr(p, "on_ams_ht_humidity_high", False),
                     "on_ams_ht_temperature_high": getattr(p, "on_ams_ht_temperature_high", False),
+                    "on_plate_not_empty": getattr(p, "on_plate_not_empty", True),
                     "quiet_hours_enabled": p.quiet_hours_enabled,
                     "quiet_hours_start": p.quiet_hours_start,
                     "quiet_hours_end": p.quiet_hours_end,
@@ -428,6 +430,17 @@ async def export_backup(
         backup["included"].append("printers")
         if include_access_codes:
             backup["included"].append("access_codes")
+
+    # Plate calibration references (requires include_printers)
+    if include_printers and include_plate_calibration:
+        plate_cal_dir = app_settings.plate_calibration_dir
+        if plate_cal_dir.exists():
+            backup["plate_calibration"] = []
+            for cal_file in plate_cal_dir.iterdir():
+                if cal_file.is_file():
+                    backup["plate_calibration"].append(cal_file.name)
+            if backup["plate_calibration"]:
+                backup["included"].append("plate_calibration")
 
     # Filaments
     if include_filaments:
@@ -587,6 +600,14 @@ async def export_backup(
                 icon_path = icons_dir / link_data["custom_icon"]
                 if icon_path.exists():
                     backup_files.append((link_data["custom_icon_path"], icon_path))
+
+    # Add plate calibration reference images
+    if "plate_calibration" in backup:
+        plate_cal_dir = app_settings.plate_calibration_dir
+        for filename in backup["plate_calibration"]:
+            file_path = plate_cal_dir / filename
+            if file_path.exists():
+                backup_files.append((f"plate_calibration/{filename}", file_path))
 
     # Print archives with file paths for ZIP
     if include_archives:
@@ -882,7 +903,12 @@ async def import_backup(
                         # Ensure path is safe (no path traversal)
                         if ".." in zip_path or zip_path.startswith("/"):
                             continue
-                        target_path = base_dir / zip_path
+                        # Plate calibration files go to plate_calibration_dir (may differ from base_dir)
+                        if zip_path.startswith("plate_calibration/"):
+                            filename = zip_path.replace("plate_calibration/", "", 1)
+                            target_path = app_settings.plate_calibration_dir / filename
+                        else:
+                            target_path = base_dir / zip_path
                         target_path.parent.mkdir(parents=True, exist_ok=True)
                         with zf.open(zip_path) as src, open(target_path, "wb") as dst:
                             dst.write(src.read())
@@ -1064,6 +1090,7 @@ async def import_backup(
                     existing.on_ams_temperature_high = provider_data.get("on_ams_temperature_high", False)
                     existing.on_ams_ht_humidity_high = provider_data.get("on_ams_ht_humidity_high", False)
                     existing.on_ams_ht_temperature_high = provider_data.get("on_ams_ht_temperature_high", False)
+                    existing.on_plate_not_empty = provider_data.get("on_plate_not_empty", True)
                     existing.quiet_hours_enabled = provider_data.get("quiet_hours_enabled", False)
                     existing.quiet_hours_start = provider_data.get("quiet_hours_start")
                     existing.quiet_hours_end = provider_data.get("quiet_hours_end")
@@ -1093,6 +1120,7 @@ async def import_backup(
                     on_ams_temperature_high=provider_data.get("on_ams_temperature_high", False),
                     on_ams_ht_humidity_high=provider_data.get("on_ams_ht_humidity_high", False),
                     on_ams_ht_temperature_high=provider_data.get("on_ams_ht_temperature_high", False),
+                    on_plate_not_empty=provider_data.get("on_plate_not_empty", True),
                     quiet_hours_enabled=provider_data.get("quiet_hours_enabled", False),
                     quiet_hours_start=provider_data.get("quiet_hours_start"),
                     quiet_hours_end=provider_data.get("quiet_hours_end"),

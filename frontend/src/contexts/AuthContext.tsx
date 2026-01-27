@@ -21,10 +21,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [requiresSetup, setRequiresSetup] = useState(false);
   const [loading, setLoading] = useState(true);
   const hasRedirectedRef = useRef(false);
+  const mountedRef = useRef(true);
 
   const checkAuthStatus = async () => {
     try {
       const status = await api.getAuthStatus();
+      if (!mountedRef.current) return;
       setAuthEnabled(status.auth_enabled);
       setRequiresSetup(status.requires_setup);
 
@@ -33,10 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (token) {
           try {
             const currentUser = await api.getCurrentUser();
+            if (!mountedRef.current) return;
             setUser(currentUser);
           } catch {
             // Token invalid, clear it
             setAuthToken(null);
+            if (!mountedRef.current) return;
             setUser(null);
           }
         } else {
@@ -47,16 +51,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null);
       }
     } catch {
+      if (!mountedRef.current) return;
       setAuthEnabled(false);
       setUser(null);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     // Check auth status on mount
     checkAuthStatus();
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
   // Separate effect to handle redirect only when setup is required
@@ -95,10 +106,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (authEnabled && getAuthToken()) {
       try {
         const currentUser = await api.getCurrentUser();
-        setUser(currentUser);
+        if (mountedRef.current) {
+          setUser(currentUser);
+        }
       } catch {
         setAuthToken(null);
-        setUser(null);
+        if (mountedRef.current) {
+          setUser(null);
+        }
       }
     }
   };

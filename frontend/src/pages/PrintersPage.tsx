@@ -2701,17 +2701,17 @@ function PrinterCard({
               >
                 <Video className="w-4 h-4" />
               </Button>
-              {/* Split button: main part opens modal, chevron toggles */}
+              {/* Split button: main part toggles detection, chevron opens modal */}
               <div className={`inline-flex rounded-md ${printer.plate_detection_enabled ? 'ring-1 ring-green-500' : ''}`}>
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={handleOpenPlateManagement}
-                  disabled={!status?.connected || isCheckingPlate}
-                  title="Manage plate detection calibration"
+                  onClick={handleTogglePlateDetection}
+                  disabled={!status?.connected || plateDetectionMutation.isPending}
+                  title={printer.plate_detection_enabled ? "Plate check enabled - Click to disable" : "Plate check disabled - Click to enable"}
                   className={`!rounded-r-none !border-r-0 ${printer.plate_detection_enabled ? "!border-green-500 !text-green-400 hover:!bg-green-500/20" : ""}`}
                 >
-                  {isCheckingPlate ? (
+                  {plateDetectionMutation.isPending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <ScanSearch className="w-4 h-4" />
@@ -2720,12 +2720,12 @@ function PrinterCard({
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={handleTogglePlateDetection}
-                  disabled={!status?.connected || plateDetectionMutation.isPending}
-                  title={printer.plate_detection_enabled ? "Plate check enabled - Click to disable" : "Plate check disabled - Click to enable"}
+                  onClick={handleOpenPlateManagement}
+                  disabled={!status?.connected || isCheckingPlate}
+                  title="Manage plate detection calibration"
                   className={`!rounded-l-none !px-1.5 ${printer.plate_detection_enabled ? "!border-green-500 !text-green-400 hover:!bg-green-500/20" : ""}`}
                 >
-                  {plateDetectionMutation.isPending ? (
+                  {isCheckingPlate ? (
                     <Loader2 className="w-3 h-3 animate-spin" />
                   ) : (
                     <ChevronDown className="w-3 h-3" />

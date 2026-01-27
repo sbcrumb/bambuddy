@@ -50,6 +50,9 @@ class NotificationProviderBase(BaseModel):
         default=False, description="Notify when AMS-HT temperature exceeds threshold"
     )
 
+    # Event triggers - Build plate detection
+    on_plate_not_empty: bool = Field(default=True, description="Notify when objects detected on plate before print")
+
     # Quiet hours
     quiet_hours_enabled: bool = Field(default=False, description="Enable quiet hours")
     quiet_hours_start: str | None = Field(default=None, description="Start time in HH:MM format")
@@ -113,6 +116,9 @@ class NotificationProviderUpdate(BaseModel):
     # Event triggers - AMS-HT environmental alarms
     on_ams_ht_humidity_high: bool | None = None
     on_ams_ht_temperature_high: bool | None = None
+
+    # Event triggers - Build plate detection
+    on_plate_not_empty: bool | None = None
 
     # Quiet hours
     quiet_hours_enabled: bool | None = None

@@ -5,6 +5,17 @@ All notable changes to Bambuddy will be documented in this file.
 ## [0.1.6] - Not released
 
 ### New Features
+- **HMS Error Notifications** - Get notified when printer errors occur (Issue #84):
+  - Automatic notifications for HMS errors (AMS issues, nozzle problems, etc.)
+  - Human-readable error messages (853 error codes translated)
+  - Friendly error type names (Print/Task, AMS/Filament, Nozzle/Extruder, Motion Controller, Chamber)
+  - Deduplication prevents spam from repeated error messages
+  - Publishes to MQTT relay for home automation integrations
+  - New "Printer Error" toggle in notification provider settings
+- **Plate Not Empty Notification** - Dedicated notification category for build plate detection:
+  - New toggle in notification provider settings (enabled by default)
+  - Sends immediately (bypasses quiet hours and digest mode)
+  - Separate from general printer errors for granular control
 - **USB Camera Support** - Connect USB webcams directly to your Bambuddy host:
   - New "USB Camera (V4L2)" option in external camera settings
   - Auto-detection of available USB cameras via V4L2
@@ -20,7 +31,7 @@ All notable changes to Bambuddy will be documented in this file.
   - Reference management: View thumbnails, add labels, delete references
   - Works with both built-in and external cameras
   - Uses buffered camera frames when stream is active (no blocking)
-  - Split button UI: Main button opens calibration modal, chevron toggles detection on/off
+  - Split button UI: Main button toggles detection on/off, chevron opens calibration modal
   - Green visual indicator when plate detection is enabled
   - Included in backup/restore
 - **Project Import/Export** - Export and import projects with full file support (Issue #152):
@@ -52,6 +63,8 @@ All notable changes to Bambuddy will be documented in this file.
   - Bulk delete for multiple files at once
 
 ### Fixes
+- **Plate Calibration Persistence** - Fixed plate detection reference images not persisting after restart in Docker deployments
+- **Telegram Notification Parsing** - Fixed Telegram markdown parsing errors when messages contain underscores (e.g., error codes)
 - **Settings API PATCH Method** - Added PATCH support to `/api/settings` for Home Assistant rest_command compatibility (Issue #152)
 - **P2S Empty Archive Tiles** - Fixed FTP file search for printers without SD card (Issue #146):
   - Added root folder `/` to search paths when looking for 3MF files
