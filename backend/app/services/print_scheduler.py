@@ -296,17 +296,19 @@ class PrintScheduler:
         # Collect all filament types loaded on this printer (AMS units + external spool)
         loaded_types: set[str] = set()
 
-        # Check AMS units
-        if status.ams_units:
-            for ams_unit in status.ams_units:
+        # Check AMS units (stored in raw_data["ams"])
+        ams_data = status.raw_data.get("ams", [])
+        if ams_data:
+            for ams_unit in ams_data:
                 for tray in ams_unit.get("tray", []):
                     tray_type = tray.get("tray_type")
                     if tray_type:
                         loaded_types.add(tray_type.upper())
 
-        # Check external spool (virtual tray)
-        if status.virtual_tray:
-            vt_type = status.virtual_tray.get("tray_type")
+        # Check external spool (virtual tray, stored in raw_data["vt_tray"])
+        vt_tray = status.raw_data.get("vt_tray")
+        if vt_tray:
+            vt_type = vt_tray.get("tray_type")
             if vt_type:
                 loaded_types.add(vt_type.upper())
 
