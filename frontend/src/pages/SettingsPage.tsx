@@ -544,14 +544,16 @@ export function SettingsPage() {
   // Local state for camera URL inputs (to avoid saving on every keystroke)
   const [localCameraUrls, setLocalCameraUrls] = useState<Record<number, string>>({});
   const cameraUrlSaveTimeoutRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const initializedPrinterUrlsRef = useRef<Set<number>>(new Set());
 
   // Initialize local camera URLs from printer data
   useEffect(() => {
     if (printers) {
       const urls: Record<number, string> = {};
       printers.forEach(p => {
-        if (p.external_camera_url && localCameraUrls[p.id] === undefined) {
+        if (p.external_camera_url && !initializedPrinterUrlsRef.current.has(p.id)) {
           urls[p.id] = p.external_camera_url;
+          initializedPrinterUrlsRef.current.add(p.id);
         }
       });
       if (Object.keys(urls).length > 0) {
