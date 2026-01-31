@@ -2725,12 +2725,12 @@ function PrinterCard({
 
         {/* Connection Info & Actions - hidden in compact mode */}
         {viewMode === 'expanded' && (
-          <div className="mt-4 pt-4 border-t border-bambu-dark-tertiary flex items-center justify-between">
+          <div className="mt-4 pt-4 border-t border-bambu-dark-tertiary flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div className="text-xs text-bambu-gray">
               <p>{printer.ip_address}</p>
               <p className="truncate">{printer.serial_number}</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {/* Chamber Light Toggle */}
               <Button
                 variant="secondary"
@@ -4524,12 +4524,12 @@ export function PrintersPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-white">Printers</h1>
           <StatusSummaryBar printers={printers} />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           {/* Sort dropdown */}
           <div className="flex items-center gap-1">
             <select

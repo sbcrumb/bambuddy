@@ -75,6 +75,8 @@
 ### ⏰ Scheduling & Automation
 - Print queue with drag-and-drop
 - Multi-printer selection (send to multiple printers at once)
+- Model-based queue assignment (send to "any X1C" for load balancing)
+- Filament validation (only assign to printers with required filaments)
 - Per-printer AMS mapping (individual slot configuration for print farms)
 - Scheduled prints (date/time)
 - Queue Only mode (stage without auto-start)
@@ -85,7 +87,8 @@
 - Auto power-off after cooldown
 
 ### 📁 File Manager (Library)
-- Upload and organize sliced files (3MF, gcode)
+- Upload and organize sliced files (3MF, gcode, STL)
+- **STL thumbnail generation** - Auto-generate previews for STL files on upload or batch generate for existing files
 - ZIP file extraction with folder structure preservation
 - Option to create folder from ZIP filename
 - Folder structure with drag-and-drop
@@ -116,6 +119,7 @@
 - Print finish photo URL in notifications
 - HMS error alerts (AMS, nozzle, etc.)
 - Build plate detection alerts
+- Queue events (waiting, skipped, failed)
 
 ### 🔧 Integrations
 - [Spoolman](https://github.com/Donkie/Spoolman) filament sync
@@ -506,10 +510,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
-If you like Bambuddy and want to support it, you can <a href="https://ko-fi.com/maziggy" target=_blank>buy Martin a coffee</a>.
-
----
-
 ## 📄 License
 
 MIT License — see [LICENSE](LICENSE) for details.
@@ -521,6 +521,10 @@ MIT License — see [LICENSE](LICENSE) for details.
 - [Bambu Lab](https://bambulab.com/) for amazing printers
 - The reverse engineering community for protocol documentation
 - All testers and contributors
+
+---
+
+If you like Bambuddy and want to support it, you can <a href="https://ko-fi.com/maziggy" target=_blank>buy Martin a coffee</a>.
 
 ---
 

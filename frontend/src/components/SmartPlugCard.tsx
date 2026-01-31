@@ -148,7 +148,7 @@ export function SmartPlugCard({ plug, onEdit }: SmartPlugCardProps) {
                 )}
               </div>
               <div className="min-w-0">
-                <h3 className="font-medium text-white truncate">{plug.name}</h3>
+                <h3 className="font-medium text-white truncate" title={plug.name}>{plug.name}</h3>
                 <p className="text-sm text-bambu-gray truncate" title={plug.plug_type === 'homeassistant' ? plug.ha_entity_id ?? undefined : plug.ip_address ?? undefined}>
                   {plug.plug_type === 'homeassistant' ? plug.ha_entity_id : plug.ip_address}
                 </p>

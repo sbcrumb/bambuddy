@@ -12,6 +12,14 @@ All notable changes to Bambuddy will be documented in this file.
   - Script automation: Run scripts automatically when main printer plug turns on/off
   - Show/hide scripts on printer cards (configurable per script)
   - Scripts appear in dedicated row on printer cards with quick-run buttons
+- **STL Thumbnail Generation** - Auto-generate preview thumbnails for STL files (Issue #156):
+  - Checkbox option when uploading STL files to generate thumbnails automatically
+  - Batch generate thumbnails for existing STL files via "Generate Thumbnails" button
+  - Individual file thumbnail generation via context menu (three-dot menu)
+  - Works with ZIP extraction (generates thumbnails for all STL files in archive)
+  - Uses trimesh and matplotlib for 3D rendering with Bambu green color theme
+  - Thumbnails auto-refresh in UI after generation
+  - Graceful handling of complex/invalid STL files
 - **Disable Printer Firmware Checks** - New toggle in Settings → General → Updates to disable printer firmware update checks:
   - Prevents Bambuddy from checking Bambu Lab servers for firmware updates
   - Useful for users who prefer to manage firmware manually or have network restrictions
@@ -97,6 +105,33 @@ All notable changes to Bambuddy will be documented in this file.
   - Bulk edit: printer assignment, print options, queue options
   - Bulk cancel selected items
   - Tri-state toggles: unchanged / on / off for each setting
+- **Model-Based Queue Assignment** - Queue prints to "any printer of matching model" for load balancing (Issue #162):
+  - Extract printer model from sliced 3MF files (e.g., "X1C", "P1S")
+  - Display sliced-for model in archive view
+  - New queue mode: assign to model instead of specific printer
+  - Scheduler auto-assigns to first idle printer of matching model
+  - Filament validation: only assign to printers with required filament types loaded
+  - Waiting reason display: shows why jobs are waiting (e.g., "Waiting for filament: Printer1 (needs PLA)")
+  - "Waiting" status badge (purple) distinguishes from regular "Pending"
+  - Compatibility warnings when file/printer model mismatch
+- **Queue Notifications** - Get notified about print queue events:
+  - Job Added: When a job is added to the queue
+  - Job Assigned: When a model-based job is assigned to a printer
+  - Job Started: When a queue job starts printing
+  - Job Waiting: When a job is waiting for filament (enabled by default)
+  - Job Skipped: When a job is skipped due to previous failure (enabled by default)
+  - Job Failed: When a job fails to start (enabled by default)
+  - Queue Complete: When all queued jobs finish
+  - New "Print Queue" section in notification provider settings
+- **Installation Scripts** - Interactive install scripts for Linux and macOS:
+  - Native install (`install.sh`): Python venv, systemd/launchd service, Node.js 22
+  - Docker install (`docker-install.sh`): Docker Compose setup with health checks
+  - Interactive prompts for: install path, port, bind address, timezone, data/log directories
+  - Unattended mode with `--yes` flag for automation
+  - Auto-detects OS and package manager (apt, dnf, pacman, brew)
+  - Option to set system timezone during installation
+  - Shows IP address for network access when binding to 0.0.0.0
+  - Supports updating existing installations
 
 ### Fixes
 - **Multi-Plate Thumbnail in Queue** - Fixed queue items showing wrong thumbnail for multi-plate files (Issue #166):
@@ -138,6 +173,10 @@ All notable changes to Bambuddy will be documented in this file.
   - Tooltip shows full name on hover
 - **K-Profiles Backup Status** - Fixed GitHub backup settings showing incorrect printer connection count (e.g., "1/2 connected" when both printers are connected); now fetches status from API instead of relying on WebSocket cache
 - **GitHub Backup Timestamps** - Removed volatile timestamps from GitHub backup files so git diffs only show actual data changes
+- **Home Assistant Smart Plug Auto-On** - Fixed print scheduler only checking Tasmota plugs when powering on printers for queued prints (Issue #200):
+  - Home Assistant smart plugs now work with automatic printer power-on for scheduled queue jobs
+  - Previously only Tasmota plugs were checked, causing HA plugs to fail with "Tasmota device not found" error
+  - Both `_power_on_and_wait` and `_power_off_if_needed` now use the correct service based on plug type
 
 ### Maintenance
 - Upgraded vitest from 2.x to 3.x to resolve npm audit security vulnerabilities in dev dependencies
