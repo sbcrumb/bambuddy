@@ -5,6 +5,13 @@ All notable changes to Bambuddy will be documented in this file.
 ## [0.1.6-final] - Not released
 
 ### New Features
+- **Home Assistant Script Support** - Control multiple devices together using HA scripts (Issue #176):
+  - Add HA script entities (e.g., `script.turn_on_printer_setup`) as smart plugs
+  - Trigger scripts to control printer + enclosure fan + other devices simultaneously
+  - Scripts show "Run" button instead of On/Off (scripts execute once when triggered)
+  - Script automation: Run scripts automatically when main printer plug turns on/off
+  - Show/hide scripts on printer cards (configurable per script)
+  - Scripts appear in dedicated row on printer cards with quick-run buttons
 - **STL Thumbnail Generation** - Auto-generate preview thumbnails for STL files (Issue #156):
   - Checkbox option when uploading STL files to generate thumbnails automatically
   - Batch generate thumbnails for existing STL files via "Generate Thumbnails" button

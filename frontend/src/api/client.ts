@@ -843,7 +843,7 @@ export interface SmartPlug {
   name: string;
   plug_type: 'tasmota' | 'homeassistant';
   ip_address: string | null;  // Required for Tasmota
-  ha_entity_id: string | null;  // Required for Home Assistant (e.g., "switch.printer_plug")
+  ha_entity_id: string | null;  // Required for Home Assistant (e.g., "switch.printer_plug", "script.turn_on_printer")
   // Home Assistant energy sensor entities (optional)
   ha_power_entity: string | null;
   ha_energy_today_entity: string | null;
@@ -866,8 +866,9 @@ export interface SmartPlug {
   schedule_enabled: boolean;
   schedule_on_time: string | null;
   schedule_off_time: string | null;
-  // Switchbar visibility
+  // Visibility options
   show_in_switchbar: boolean;
+  show_on_printer_card: boolean;  // For scripts: show on printer card
   // Status
   last_state: string | null;
   last_checked: string | null;
@@ -902,8 +903,9 @@ export interface SmartPlugCreate {
   schedule_enabled?: boolean;
   schedule_on_time?: string | null;
   schedule_off_time?: string | null;
-  // Switchbar visibility
+  // Visibility options
   show_in_switchbar?: boolean;
+  show_on_printer_card?: boolean;
 }
 
 export interface SmartPlugUpdate {
@@ -932,8 +934,9 @@ export interface SmartPlugUpdate {
   schedule_enabled?: boolean;
   schedule_on_time?: string | null;
   schedule_off_time?: string | null;
-  // Switchbar visibility
+  // Visibility options
   show_in_switchbar?: boolean;
+  show_on_printer_card?: boolean;
 }
 
 // Home Assistant entity for smart plug selection
@@ -941,7 +944,7 @@ export interface HAEntity {
   entity_id: string;
   friendly_name: string;
   state: string | null;
-  domain: string;  // "switch", "light", "input_boolean"
+  domain: string;  // "switch", "light", "input_boolean", "script"
 }
 
 // Home Assistant sensor entity for energy monitoring
@@ -2424,6 +2427,7 @@ export const api = {
   getSmartPlugs: () => request<SmartPlug[]>('/smart-plugs/'),
   getSmartPlug: (id: number) => request<SmartPlug>(`/smart-plugs/${id}`),
   getSmartPlugByPrinter: (printerId: number) => request<SmartPlug | null>(`/smart-plugs/by-printer/${printerId}`),
+  getScriptPlugsByPrinter: (printerId: number) => request<SmartPlug[]>(`/smart-plugs/by-printer/${printerId}/scripts`),
   createSmartPlug: (data: SmartPlugCreate) =>
     request<SmartPlug>('/smart-plugs/', {
       method: 'POST',
