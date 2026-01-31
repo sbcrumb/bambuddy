@@ -29,6 +29,7 @@ CHAMBER_TEMP_SUPPORTED_MODELS = frozenset(
         "O1C",  # H2C
         "O1S",  # H2S
         "O1E",  # H2D Pro
+        "O2D",  # H2D Pro (alternate code)
         "N7",  # P2S
     ]
 )

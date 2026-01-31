@@ -39,7 +39,8 @@ PRINTER_MODEL_ID_MAP = {
     "A04": "A1 Mini",
     # H2D series (Office/H series)
     "O1D": "H2D",
-    "O2D": "H2D Pro",
+    "O1E": "H2D Pro",  # Some devices report O1E
+    "O2D": "H2D Pro",  # Some devices report O2D
 }
 
 

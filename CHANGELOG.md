@@ -166,6 +166,10 @@ All notable changes to Bambuddy will be documented in this file.
   - Tooltip shows full name on hover
 - **K-Profiles Backup Status** - Fixed GitHub backup settings showing incorrect printer connection count (e.g., "1/2 connected" when both printers are connected); now fetches status from API instead of relying on WebSocket cache
 - **GitHub Backup Timestamps** - Removed volatile timestamps from GitHub backup files so git diffs only show actual data changes
+- **Model-Based Queue AMS Mapping** - Fixed "Any [Model]" queue jobs failing at filament loading on H2D Pro and other printers (Issue #192):
+  - Scheduler now computes AMS mapping after printer assignment for model-based jobs
+  - Previously, no AMS mapping was sent because the specific printer wasn't known at queue time
+  - Auto-matches required filaments to available AMS slots by type and color
 
 ### Maintenance
 - Upgraded vitest from 2.x to 3.x to resolve npm audit security vulnerabilities in dev dependencies

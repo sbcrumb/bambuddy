@@ -1,8 +1,12 @@
 """Print scheduler service - processes the print queue."""
 
 import asyncio
+import json
 import logging
+import xml.etree.ElementTree as ET
+import zipfile
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -139,8 +143,6 @@ class PrintScheduler:
                     required_types = None
                     if item.required_filament_types:
                         try:
-                            import json
-
                             required_types = json.loads(item.required_filament_types)
                         except json.JSONDecodeError:
                             pass
@@ -202,6 +204,17 @@ class PrintScheduler:
                             target_model=item.target_model,
                             db=db,
                         )
+
+                        # Compute AMS mapping for the assigned printer if not already set
+                        # This is critical for model-based jobs where mapping wasn't computed upfront
+                        if not item.ams_mapping:
+                            computed_mapping = await self._compute_ams_mapping_for_printer(db, printer_id, item)
+                            if computed_mapping:
+                                item.ams_mapping = json.dumps(computed_mapping)
+                                logger.info(
+                                    f"Queue item {item.id}: Computed AMS mapping for printer {printer_id}: {computed_mapping}"
+                                )
+                                await db.commit()
 
                         await self._start_print(db, item)
                         busy_printers.add(printer_id)
@@ -324,6 +337,294 @@ class PrintScheduler:
                 missing.append(req_type)
 
         return missing
+
+    async def _compute_ams_mapping_for_printer(
+        self, db: AsyncSession, printer_id: int, item: PrintQueueItem
+    ) -> list[int] | None:
+        """Compute AMS mapping for a printer based on filament requirements.
+
+        This is called for model-based queue items after a printer is assigned,
+        to compute the correct AMS slot mapping for that specific printer's hardware.
+
+        Args:
+            db: Database session
+            printer_id: The assigned printer ID
+            item: The queue item (contains archive_id or library_file_id)
+
+        Returns:
+            AMS mapping array or None if no mapping needed/possible
+        """
+        # Get printer status
+        status = printer_manager.get_status(printer_id)
+        if not status:
+            logger.warning(f"Cannot compute AMS mapping: printer {printer_id} status unavailable")
+            return None
+
+        # Get filament requirements from source file
+        filament_reqs = await self._get_filament_requirements(db, item)
+        if not filament_reqs:
+            logger.debug(f"No filament requirements found for queue item {item.id}")
+            return None
+
+        # Build loaded filaments from printer status
+        loaded_filaments = self._build_loaded_filaments(status)
+        if not loaded_filaments:
+            logger.debug(f"No filaments loaded on printer {printer_id}")
+            return None
+
+        # Compute mapping: match required filaments to available slots
+        return self._match_filaments_to_slots(filament_reqs, loaded_filaments)
+
+    async def _get_filament_requirements(self, db: AsyncSession, item: PrintQueueItem) -> list[dict] | None:
+        """Extract filament requirements from the source 3MF file.
+
+        Args:
+            db: Database session
+            item: Queue item with archive_id or library_file_id
+
+        Returns:
+            List of filament requirement dicts with slot_id, type, color, used_grams
+        """
+        file_path: Path | None = None
+
+        if item.archive_id:
+            result = await db.execute(select(PrintArchive).where(PrintArchive.id == item.archive_id))
+            archive = result.scalar_one_or_none()
+            if archive:
+                file_path = settings.base_dir / archive.file_path
+        elif item.library_file_id:
+            result = await db.execute(select(LibraryFile).where(LibraryFile.id == item.library_file_id))
+            library_file = result.scalar_one_or_none()
+            if library_file:
+                lib_path = Path(library_file.file_path)
+                file_path = lib_path if lib_path.is_absolute() else settings.base_dir / library_file.file_path
+
+        if not file_path or not file_path.exists():
+            return None
+
+        filaments = []
+        try:
+            with zipfile.ZipFile(file_path, "r") as zf:
+                if "Metadata/slice_info.config" not in zf.namelist():
+                    return None
+
+                content = zf.read("Metadata/slice_info.config").decode()
+                root = ET.fromstring(content)
+
+                # Check if plate_id is specified - use that plate's filaments
+                plate_id = item.plate_id
+                if plate_id:
+                    for plate_elem in root.findall("./plate"):
+                        plate_index = None
+                        for meta in plate_elem.findall("metadata"):
+                            if meta.get("key") == "index":
+                                plate_index = int(meta.get("value", "0"))
+                                break
+                        if plate_index == plate_id:
+                            for filament_elem in plate_elem.findall("./filament"):
+                                filament_id = filament_elem.get("id")
+                                filament_type = filament_elem.get("type", "")
+                                filament_color = filament_elem.get("color", "")
+                                used_g = filament_elem.get("used_g", "0")
+                                try:
+                                    used_grams = float(used_g)
+                                    if used_grams > 0 and filament_id:
+                                        filaments.append(
+                                            {
+                                                "slot_id": int(filament_id),
+                                                "type": filament_type,
+                                                "color": filament_color,
+                                                "used_grams": round(used_grams, 1),
+                                            }
+                                        )
+                                except (ValueError, TypeError):
+                                    pass
+                            break
+                else:
+                    # No plate_id - extract all filaments with used_g > 0
+                    for filament_elem in root.findall("./filament"):
+                        filament_id = filament_elem.get("id")
+                        filament_type = filament_elem.get("type", "")
+                        filament_color = filament_elem.get("color", "")
+                        used_g = filament_elem.get("used_g", "0")
+                        try:
+                            used_grams = float(used_g)
+                            if used_grams > 0 and filament_id:
+                                filaments.append(
+                                    {
+                                        "slot_id": int(filament_id),
+                                        "type": filament_type,
+                                        "color": filament_color,
+                                        "used_grams": round(used_grams, 1),
+                                    }
+                                )
+                        except (ValueError, TypeError):
+                            pass
+
+                filaments.sort(key=lambda x: x["slot_id"])
+        except Exception as e:
+            logger.warning(f"Failed to parse filament requirements: {e}")
+            return None
+
+        return filaments if filaments else None
+
+    def _build_loaded_filaments(self, status) -> list[dict]:
+        """Build list of loaded filaments from printer status.
+
+        Args:
+            status: PrinterState from printer_manager
+
+        Returns:
+            List of loaded filament dicts with type, color, ams_id, tray_id, global_tray_id
+        """
+        filaments = []
+
+        # Parse AMS units from raw_data
+        ams_data = status.raw_data.get("ams", [])
+        for ams_unit in ams_data:
+            ams_id = ams_unit.get("id", 0)
+            trays = ams_unit.get("tray", [])
+            is_ht = len(trays) == 1  # AMS-HT has single tray
+
+            for tray in trays:
+                tray_type = tray.get("tray_type")
+                if tray_type:
+                    tray_id = tray.get("id", 0)
+                    tray_color = tray.get("tray_color", "")
+                    # Normalize color: remove alpha, add hash
+                    color = self._normalize_color(tray_color)
+                    # Calculate global tray ID
+                    global_tray_id = ams_id * 4 + tray_id
+
+                    filaments.append(
+                        {
+                            "type": tray_type,
+                            "color": color,
+                            "ams_id": ams_id,
+                            "tray_id": tray_id,
+                            "is_ht": is_ht,
+                            "is_external": False,
+                            "global_tray_id": global_tray_id,
+                        }
+                    )
+
+        # Check external spool (vt_tray)
+        vt_tray = status.raw_data.get("vt_tray")
+        if vt_tray and vt_tray.get("tray_type"):
+            color = self._normalize_color(vt_tray.get("tray_color", ""))
+            filaments.append(
+                {
+                    "type": vt_tray["tray_type"],
+                    "color": color,
+                    "ams_id": -1,
+                    "tray_id": 0,
+                    "is_ht": False,
+                    "is_external": True,
+                    "global_tray_id": 254,
+                }
+            )
+
+        return filaments
+
+    def _normalize_color(self, color: str | None) -> str:
+        """Normalize color to #RRGGBB format."""
+        if not color:
+            return "#808080"
+        hex_color = color.replace("#", "")[:6]
+        return f"#{hex_color}"
+
+    def _normalize_color_for_compare(self, color: str | None) -> str:
+        """Normalize color for comparison (lowercase, no hash)."""
+        if not color:
+            return ""
+        return color.replace("#", "").lower()[:6]
+
+    def _colors_are_similar(self, color1: str | None, color2: str | None, threshold: int = 40) -> bool:
+        """Check if two colors are visually similar within a threshold."""
+        hex1 = self._normalize_color_for_compare(color1)
+        hex2 = self._normalize_color_for_compare(color2)
+        if not hex1 or not hex2 or len(hex1) < 6 or len(hex2) < 6:
+            return False
+
+        try:
+            r1 = int(hex1[0:2], 16)
+            g1 = int(hex1[2:4], 16)
+            b1 = int(hex1[4:6], 16)
+            r2 = int(hex2[0:2], 16)
+            g2 = int(hex2[2:4], 16)
+            b2 = int(hex2[4:6], 16)
+            return abs(r1 - r2) <= threshold and abs(g1 - g2) <= threshold and abs(b1 - b2) <= threshold
+        except ValueError:
+            return False
+
+    def _match_filaments_to_slots(self, required: list[dict], loaded: list[dict]) -> list[int] | None:
+        """Match required filaments to loaded filaments and build AMS mapping.
+
+        Priority: exact color match > similar color match > type-only match
+
+        Args:
+            required: List of required filaments with slot_id, type, color
+            loaded: List of loaded filaments with type, color, global_tray_id
+
+        Returns:
+            AMS mapping array (position = slot_id - 1, value = global_tray_id or -1)
+        """
+        if not required:
+            return None
+
+        # Track used trays to avoid duplicate assignment
+        used_tray_ids: set[int] = set()
+        comparisons = []
+
+        for req in required:
+            req_type = (req.get("type") or "").upper()
+            req_color = req.get("color", "")
+
+            # Find best match: exact color > similar color > type-only
+            exact_match = None
+            similar_match = None
+            type_only_match = None
+
+            for f in loaded:
+                if f["global_tray_id"] in used_tray_ids:
+                    continue
+                f_type = (f.get("type") or "").upper()
+                if f_type != req_type:
+                    continue
+
+                # Type matches - check color
+                f_color = f.get("color", "")
+                if self._normalize_color_for_compare(f_color) == self._normalize_color_for_compare(req_color):
+                    exact_match = f
+                    break  # Best possible match
+                elif self._colors_are_similar(f_color, req_color):
+                    if not similar_match:
+                        similar_match = f
+                elif not type_only_match:
+                    type_only_match = f
+
+            match = exact_match or similar_match or type_only_match
+            if match:
+                used_tray_ids.add(match["global_tray_id"])
+                comparisons.append({"slot_id": req.get("slot_id", 0), "global_tray_id": match["global_tray_id"]})
+            else:
+                comparisons.append({"slot_id": req.get("slot_id", 0), "global_tray_id": -1})
+
+        # Build mapping array
+        if not comparisons:
+            return None
+
+        max_slot_id = max(c["slot_id"] for c in comparisons)
+        if max_slot_id <= 0:
+            return None
+
+        mapping = [-1] * max_slot_id
+        for c in comparisons:
+            slot_id = c["slot_id"]
+            if slot_id and slot_id > 0:
+                mapping[slot_id - 1] = c["global_tray_id"]
+
+        return mapping
 
     def _is_printer_idle(self, printer_id: int) -> bool:
         """Check if a printer is connected and idle."""
@@ -625,8 +926,6 @@ class PrintScheduler:
         ams_mapping = None
         if item.ams_mapping:
             try:
-                import json
-
                 ams_mapping = json.loads(item.ams_mapping)
             except json.JSONDecodeError:
                 logger.warning(f"Queue item {item.id}: Invalid AMS mapping JSON, ignoring")

@@ -3625,6 +3625,8 @@ function AddPrinterModal({
     const modelMap: Record<string, string> = {
       // H2 Series
       'O1D': 'H2D',
+      'O1E': 'H2D Pro',  // Some devices report O1E
+      'O2D': 'H2D Pro',  // Some devices report O2D
       'O1C': 'H2C',
       'O1S': 'H2S',
       // X1 Series
@@ -3648,6 +3650,7 @@ function AddPrinterModal({
       'A1': 'A1',
       'A1 Mini': 'A1 Mini',
       'H2D': 'H2D',
+      'H2D Pro': 'H2D Pro',
       'H2C': 'H2C',
       'H2S': 'H2S',
     };
@@ -3848,6 +3851,7 @@ function AddPrinterModal({
                 <optgroup label="H2 Series">
                   <option value="H2C">H2C</option>
                   <option value="H2D">H2D</option>
+                  <option value="H2D Pro">H2D Pro</option>
                   <option value="H2S">H2S</option>
                 </optgroup>
                 <optgroup label="X1 Series">
@@ -4209,6 +4213,7 @@ function EditPrinterModal({
                 <optgroup label="H2 Series">
                   <option value="H2C">H2C</option>
                   <option value="H2D">H2D</option>
+                  <option value="H2D Pro">H2D Pro</option>
                   <option value="H2S">H2S</option>
                 </optgroup>
                 <optgroup label="X1 Series">
