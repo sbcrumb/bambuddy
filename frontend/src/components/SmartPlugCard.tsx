@@ -114,17 +114,17 @@ export function SmartPlugCard({ plug, onEdit }: SmartPlugCardProps) {
         <CardContent className="p-4">
           {/* Header Row */}
           <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${isReachable ? (isOn ? 'bg-bambu-green/20' : 'bg-bambu-dark') : 'bg-red-500/20'}`}>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className={`p-2 rounded-lg flex-shrink-0 ${isReachable ? (isOn ? 'bg-bambu-green/20' : 'bg-bambu-dark') : 'bg-red-500/20'}`}>
                 {plug.plug_type === 'homeassistant' ? (
                   <Home className={`w-5 h-5 ${isReachable ? (isOn ? 'text-bambu-green' : 'text-bambu-gray') : 'text-red-400'}`} />
                 ) : (
                   <Plug className={`w-5 h-5 ${isReachable ? (isOn ? 'text-bambu-green' : 'text-bambu-gray') : 'text-red-400'}`} />
                 )}
               </div>
-              <div>
-                <h3 className="font-medium text-white">{plug.name}</h3>
-                <p className="text-sm text-bambu-gray">
+              <div className="min-w-0">
+                <h3 className="font-medium text-white truncate" title={plug.name}>{plug.name}</h3>
+                <p className="text-sm text-bambu-gray truncate">
                   {plug.plug_type === 'homeassistant' ? plug.ha_entity_id : plug.ip_address}
                 </p>
               </div>
