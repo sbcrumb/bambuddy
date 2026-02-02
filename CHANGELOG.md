@@ -56,6 +56,14 @@ All notable changes to Bambuddy will be documented in this file.
   - Removed ~2000 lines of legacy JSON-based backup/restore code
 
 ### Fixes
+- **File Manager permissions not enforced** (Issue #224) - Fixed backend not checking `library:read` permission for File Manager endpoints:
+  - Added `library:read` permission check to all list/view endpoints (files, folders, stats)
+  - Added `library:upload` permission check to upload and folder creation endpoints
+  - Added `queue:create` permission check to add-to-queue endpoint
+  - Added `printers:control` permission check to direct print endpoint
+  - Added ownership-based permission checks to file move operation
+  - Users without `library:read` permission can no longer view files in the File Manager
+  - Users can now only delete/update their own files unless they have `*_all` permissions
 - **JWT secret key not persistent across restarts** - Fixed JWT secret key generation to properly use data directory, ensuring tokens remain valid across container restarts
 - **Images/thumbnails returning 401 when auth enabled** - Fixed auth middleware to allow public access to image/media endpoints (thumbnails, photos, QR codes, timelapses, camera streams) since browser elements like `<img>` don't send Authorization headers
 - **Library thumbnails missing after restore** - Fixed library files using absolute paths that break after restore on different systems:
