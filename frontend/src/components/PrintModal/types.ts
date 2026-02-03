@@ -130,6 +130,10 @@ export interface PrinterSelectorProps {
   targetModel?: string | null;
   /** Handler for target model change */
   onTargetModelChange?: (model: string | null) => void;
+  /** Selected target location (when assignmentMode is 'model') */
+  targetLocation?: string | null;
+  /** Handler for target location change */
+  onTargetLocationChange?: (location: string | null) => void;
   /** Suggested model from sliced file (for pre-selection) */
   slicedForModel?: string | null;
 }
@@ -183,4 +187,8 @@ export interface PrintOptionsProps {
 export interface ScheduleOptionsProps {
   options: ScheduleOptions;
   onChange: (options: ScheduleOptions) => void;
+  /** Date format setting from user preferences */
+  dateFormat?: 'system' | 'us' | 'eu' | 'iso';
+  /** Time format setting from user preferences */
+  timeFormat?: 'system' | '12h' | '24h';
 }

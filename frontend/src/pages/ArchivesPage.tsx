@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import {
   Download,
   Trash2,
@@ -72,6 +73,8 @@ import { TagManagementModal } from '../components/TagManagementModal';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 
+type TFunction = (key: string, options?: Record<string, unknown>) => string;
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -116,6 +119,7 @@ function ArchiveCard({
   projects,
   isHighlighted,
   timeFormat = 'system',
+  t,
 }: {
   archive: Archive;
   printerName: string;
@@ -125,6 +129,7 @@ function ArchiveCard({
   projects: ProjectListItem[] | undefined;
   isHighlighted?: boolean;
   timeFormat?: TimeFormat;
+  t: TFunction;
 }) {
   // Debug: log when card is highlighted
   if (isHighlighted) {
@@ -170,10 +175,10 @@ function ArchiveCard({
     mutationFn: (file: File) => api.uploadSource3mf(archive.id, file),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(`Source 3MF attached: ${data.filename}`);
+      showToast(t('archives.toast.source3mfAttached', { filename: data.filename }));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to upload source 3MF', 'error');
+      showToast(error.message || t('archives.toast.failedUploadSource3mf'), 'error');
     },
   });
 
@@ -181,10 +186,10 @@ function ArchiveCard({
     mutationFn: () => api.deleteSource3mf(archive.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast('Source 3MF removed');
+      showToast(t('archives.toast.source3mfRemoved'));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to remove source 3MF', 'error');
+      showToast(error.message || t('archives.toast.failedRemoveSource3mf'), 'error');
     },
   });
 
@@ -192,10 +197,10 @@ function ArchiveCard({
     mutationFn: (file: File) => api.uploadF3d(archive.id, file),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(`F3D attached: ${data.filename}`);
+      showToast(t('archives.toast.f3dAttached', { filename: data.filename }));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to upload F3D', 'error');
+      showToast(error.message || t('archives.toast.failedUploadF3d'), 'error');
     },
   });
 
@@ -203,10 +208,10 @@ function ArchiveCard({
     mutationFn: () => api.deleteF3d(archive.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast('F3D removed');
+      showToast(t('archives.toast.f3dRemoved'));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to remove F3D', 'error');
+      showToast(error.message || t('archives.toast.failedRemoveF3d'), 'error');
     },
   });
 
@@ -215,19 +220,19 @@ function ArchiveCard({
     onSuccess: (data) => {
       if (data.status === 'attached') {
         queryClient.invalidateQueries({ queryKey: ['archives'] });
-        showToast(`Timelapse attached: ${data.filename}`);
+        showToast(t('archives.toast.timelapseAttached', { filename: data.filename }));
       } else if (data.status === 'exists') {
-        showToast('Timelapse already attached');
+        showToast(t('archives.toast.timelapseAlreadyAttached'));
       } else if (data.status === 'not_found' && data.available_files && data.available_files.length > 0) {
         // Show selection dialog
         setAvailableTimelapses(data.available_files);
         setShowTimelapseSelect(true);
       } else {
-        showToast(data.message || 'No matching timelapse found', 'warning');
+        showToast(data.message || t('archives.toast.noMatchingTimelapse'), 'warning');
       }
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to scan for timelapse', 'error');
+      showToast(error.message || t('archives.toast.failedScanTimelapse'), 'error');
     },
   });
 
@@ -235,12 +240,12 @@ function ArchiveCard({
     mutationFn: (filename: string) => api.selectArchiveTimelapse(archive.id, filename),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(`Timelapse attached: ${data.filename}`);
+      showToast(t('archives.toast.timelapseAttached', { filename: data.filename }));
       setShowTimelapseSelect(false);
       setAvailableTimelapses([]);
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to attach timelapse', 'error');
+      showToast(error.message || t('archives.toast.failedAttachTimelapse'), 'error');
     },
   });
 
@@ -248,10 +253,10 @@ function ArchiveCard({
     mutationFn: () => api.deleteArchive(archive.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast('Archive deleted');
+      showToast(t('archives.toast.archiveDeleted'));
     },
     onError: () => {
-      showToast('Failed to delete archive', 'error');
+      showToast(t('archives.toast.failedDeleteArchive'), 'error');
     },
   });
 
@@ -259,7 +264,7 @@ function ArchiveCard({
     mutationFn: () => api.toggleFavorite(archive.id),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(data.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+      showToast(data.is_favorite ? t('archives.toast.addedToFavorites') : t('archives.toast.removedFromFavorites'));
     },
   });
 
@@ -274,10 +279,10 @@ function ArchiveCard({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      showToast('Project updated');
+      showToast(t('archives.toast.projectUpdated'));
     },
     onError: () => {
-      showToast('Failed to update project', 'error');
+      showToast(t('archives.toast.failedUpdateProject'), 'error');
     },
   });
 
@@ -293,21 +298,21 @@ function ArchiveCard({
     // For source files: show Slice as the primary action
     ...(isGcodeFile ? [
       {
-        label: 'Print',
+        label: t('archives.menu.print'),
         icon: <Printer className="w-4 h-4" />,
         onClick: () => setShowReprint(true),
         disabled: !canModify('archives', 'reprint', archive.created_by_id),
-        title: !canModify('archives', 'reprint', archive.created_by_id) ? 'You do not have permission to reprint this archive' : undefined,
+        title: !canModify('archives', 'reprint', archive.created_by_id) ? t('archives.permission.noReprint') : undefined,
       },
       {
-        label: 'Schedule',
+        label: t('archives.menu.schedule'),
         icon: <Calendar className="w-4 h-4" />,
         onClick: () => setShowSchedule(true),
         disabled: !hasPermission('queue:create'),
-        title: !hasPermission('queue:create') ? 'You do not have permission to add to queue' : undefined,
+        title: !hasPermission('queue:create') ? t('archives.permission.noAddToQueue') : undefined,
       },
       {
-        label: 'Open in Bambu Studio',
+        label: t('archives.menu.openInBambuStudio'),
         icon: <ExternalLink className="w-4 h-4" />,
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
@@ -317,7 +322,7 @@ function ArchiveCard({
       },
     ] : [
       {
-        label: 'Slice',
+        label: t('archives.menu.slice'),
         icon: <ExternalLink className="w-4 h-4" />,
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
@@ -327,7 +332,7 @@ function ArchiveCard({
       },
     ]),
     {
-      label: archive.external_url ? 'External Link' : 'View on MakerWorld',
+      label: archive.external_url ? t('archives.menu.externalLink') : t('archives.menu.viewOnMakerWorld'),
       icon: <Globe className="w-4 h-4" />,
       onClick: () => {
         const url = archive.external_url || archive.makerworld_url;
@@ -337,156 +342,153 @@ function ArchiveCard({
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: '3D Preview',
+      label: t('archives.menu.preview3d'),
       icon: <Box className="w-4 h-4" />,
       onClick: () => setShowViewer(true),
     },
     {
-      label: 'View Timelapse',
+      label: t('archives.menu.viewTimelapse'),
       icon: <Film className="w-4 h-4" />,
       onClick: () => setShowTimelapse(true),
       disabled: !archive.timelapse_path,
     },
     {
-      label: 'Scan for Timelapse',
+      label: t('archives.menu.scanForTimelapse'),
       icon: <ScanSearch className="w-4 h-4" />,
       onClick: () => timelapseScanMutation.mutate(),
       disabled: !archive.printer_id || !!archive.timelapse_path || timelapseScanMutation.isPending || !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update archives' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: archive.source_3mf_path ? 'Download Source 3MF' : 'Upload Source 3MF',
+      label: archive.source_3mf_path ? t('archives.menu.downloadSource3mf') : t('archives.menu.uploadSource3mf'),
       icon: <FileCode className="w-4 h-4" />,
       onClick: () => {
         if (archive.source_3mf_path) {
-          const link = document.createElement('a');
-          link.href = api.getSource3mfDownloadUrl(archive.id);
-          link.download = `${archive.print_name || archive.filename}_source.3mf`;
-          link.click();
+          api.downloadSource3mf(archive.id).catch((err) => {
+            console.error('Source 3MF download failed:', err);
+          });
         } else {
           source3mfInputRef.current?.click();
         }
       },
       disabled: !archive.source_3mf_path && !canModify('archives', 'update', archive.created_by_id),
-      title: !archive.source_3mf_path && !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to upload files' : undefined,
+      title: !archive.source_3mf_path && !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUploadFiles') : undefined,
     },
     ...(archive.source_3mf_path ? [{
-      label: 'Replace Source 3MF',
+      label: t('archives.menu.replaceSource3mf'),
       icon: <Upload className="w-4 h-4" />,
       onClick: () => source3mfInputRef.current?.click(),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     {
-      label: 'Remove Source 3MF',
+      label: t('archives.menu.removeSource3mf'),
       icon: <Trash2 className="w-4 h-4" />,
       onClick: () => setShowDeleteSource3mfConfirm(true),
       danger: true,
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     }] : []),
     {
-      label: archive.f3d_path ? 'Replace F3D' : 'Upload F3D',
+      label: archive.f3d_path ? t('archives.menu.replaceF3d') : t('archives.menu.uploadF3d'),
       icon: <Box className="w-4 h-4" />,
       onClick: () => f3dInputRef.current?.click(),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     ...(archive.f3d_path ? [{
-      label: 'Download F3D',
+      label: t('archives.menu.downloadF3d'),
       icon: <Download className="w-4 h-4" />,
       onClick: () => {
-        const link = document.createElement('a');
-        link.href = api.getF3dDownloadUrl(archive.id);
-        link.download = `${archive.print_name || archive.filename}.f3d`;
-        link.click();
+        api.downloadF3d(archive.id).catch((err) => {
+          console.error('F3D download failed:', err);
+        });
       },
     },
     {
-      label: 'Remove F3D',
+      label: t('archives.menu.removeF3d'),
       icon: <Trash2 className="w-4 h-4" />,
       onClick: () => setShowDeleteF3dConfirm(true),
       danger: true,
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     }] : []),
     { label: '', divider: true, onClick: () => {} },
     {
-      label: 'Download',
+      label: t('archives.menu.download'),
       icon: <Download className="w-4 h-4" />,
       onClick: () => {
-        const link = document.createElement('a');
-        link.href = api.getArchiveDownload(archive.id);
-        link.download = `${archive.print_name || archive.filename}.3mf`;
-        link.click();
+        api.downloadArchive(archive.id, `${archive.print_name || archive.filename}.3mf`).catch((err) => {
+          console.error('Archive download failed:', err);
+        });
       },
       disabled: !hasPermission('archives:read'),
-      title: !hasPermission('archives:read') ? 'You do not have permission to download archives' : undefined,
+      title: !hasPermission('archives:read') ? t('archives.permission.noDownload') : undefined,
     },
     {
-      label: 'Copy Download Link',
+      label: t('archives.menu.copyDownloadLink'),
       icon: <Copy className="w-4 h-4" />,
       onClick: () => {
         const url = `${window.location.origin}${api.getArchiveDownload(archive.id)}`;
         navigator.clipboard.writeText(url).then(() => {
-          showToast('Link copied to clipboard');
+          showToast(t('archives.toast.linkCopied'));
         }).catch(() => {
-          showToast('Failed to copy link', 'error');
+          showToast(t('archives.toast.failedCopyLink'), 'error');
         });
       },
       disabled: !hasPermission('archives:read'),
-      title: !hasPermission('archives:read') ? 'You do not have permission to copy download links' : undefined,
+      title: !hasPermission('archives:read') ? t('archives.permission.noCopyLink') : undefined,
     },
     {
-      label: 'QR Code',
+      label: t('archives.menu.qrCode'),
       icon: <QrCode className="w-4 h-4" />,
       onClick: () => setShowQRCode(true),
     },
     {
-      label: `View Photos${archive.photos?.length ? ` (${archive.photos.length})` : ''}`,
+      label: archive.photos?.length ? t('archives.menu.viewPhotosCount', { count: archive.photos.length }) : t('archives.menu.viewPhotos'),
       icon: <Camera className="w-4 h-4" />,
       onClick: () => setShowPhotos(true),
       disabled: !archive.photos?.length,
     },
     {
-      label: 'Project Page',
+      label: t('archives.menu.projectPage'),
       icon: <FileText className="w-4 h-4" />,
       onClick: () => setShowProjectPage(true),
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: archive.is_favorite ? 'Remove from Favorites' : 'Add to Favorites',
+      label: archive.is_favorite ? t('archives.menu.removeFromFavorites') : t('archives.menu.addToFavorites'),
       icon: <Star className={`w-4 h-4 ${archive.is_favorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />,
       onClick: () => favoriteMutation.mutate(),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     {
-      label: 'Edit',
+      label: t('archives.menu.edit'),
       icon: <Pencil className="w-4 h-4" />,
       onClick: () => setShowEdit(true),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     ...(archive.project_id && archive.project_name ? [{
-      label: `Go to Project: ${archive.project_name}`,
+      label: t('archives.menu.goToProject', { name: archive.project_name }),
       icon: <FolderKanban className="w-4 h-4 text-bambu-green" />,
       onClick: () => window.location.href = '/projects',
     }] : []),
     {
-      label: 'Add to Project',
+      label: t('archives.menu.addToProject'),
       icon: <FolderKanban className="w-4 h-4" />,
       onClick: () => {},
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
       submenu: (() => {
         const items: ContextMenuItem[] = [];
 
         // Add "Remove from Project" if archive is in a project
         if (archive.project_id) {
           items.push({
-            label: 'Remove from Project',
+            label: t('archives.menu.removeFromProject'),
             icon: <X className="w-4 h-4" />,
             onClick: () => assignProjectMutation.mutate(null),
             disabled: !canModify('archives', 'update', archive.created_by_id),
@@ -496,7 +498,7 @@ function ArchiveCard({
         // Add project options
         if (!projects) {
           items.push({
-            label: 'Loading...',
+            label: t('archives.menu.loading'),
             icon: <Loader2 className="w-4 h-4 animate-spin" />,
             onClick: () => {},
             disabled: true,
@@ -505,7 +507,7 @@ function ArchiveCard({
           const activeProjects = projects.filter(p => p.status === 'active');
           if (activeProjects.length === 0) {
             items.push({
-              label: 'No projects available',
+              label: t('archives.menu.noProjectsAvailable'),
               icon: <FolderKanban className="w-4 h-4 opacity-50" />,
               onClick: () => {},
               disabled: true,
@@ -526,18 +528,18 @@ function ArchiveCard({
       })(),
     },
     {
-      label: isSelected ? 'Deselect' : 'Select',
+      label: isSelected ? t('archives.menu.deselect') : t('archives.menu.select'),
       icon: isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />,
       onClick: () => onSelect(archive.id),
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: 'Delete',
+      label: t('archives.menu.delete'),
       icon: <Trash2 className="w-4 h-4" />,
       onClick: () => setShowDeleteConfirm(true),
       danger: true,
       disabled: !canModify('archives', 'delete', archive.created_by_id),
-      title: !canModify('archives', 'delete', archive.created_by_id) ? 'You do not have permission to delete this archive' : undefined,
+      title: !canModify('archives', 'delete', archive.created_by_id) ? t('archives.permission.noDelete') : undefined,
     },
   ];
 
@@ -599,7 +601,7 @@ function ArchiveCard({
                   return current > 0 ? current - 1 : plates.length - 1;
                 });
               }}
-              title="Previous plate"
+              title={t('archives.card.previousPlate')}
             >
               <ChevronLeft className="w-4 h-4 text-white" />
             </button>
@@ -615,7 +617,7 @@ function ArchiveCard({
                   return current < plates.length - 1 ? current + 1 : 0;
                 });
               }}
-              title="Next plate"
+              title={t('archives.card.nextPlate')}
             >
               <ChevronRight className="w-4 h-4 text-white" />
             </button>
@@ -635,7 +637,7 @@ function ArchiveCard({
                     e.stopPropagation();
                     setCurrentPlateIndex(idx);
                   }}
-                  title={plate.name || `Plate ${plate.index}`}
+                  title={plate.name || t('archives.card.plateNumber', { index: plate.index })}
                 />
               ))}
             </div>
@@ -651,7 +653,7 @@ function ArchiveCard({
             const rect = e.currentTarget.getBoundingClientRect();
             setContextMenu({ x: rect.left, y: rect.bottom + 4 });
           }}
-          title="Right-click for more options"
+          title={t('archives.card.moreOptions')}
         >
           <MoreVertical className="w-5 h-5 text-white" />
         </button>
@@ -669,7 +671,7 @@ function ArchiveCard({
             }
           }}
           disabled={!canModify('archives', 'update', archive.created_by_id)}
-          title={!canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update archives' : (archive.is_favorite ? 'Remove from favorites' : 'Add to favorites')}
+          title={!canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : (archive.is_favorite ? t('archives.card.removeFromFavorites') : t('archives.card.addToFavorites'))}
         >
           <Star
             className={`w-5 h-5 ${archive.is_favorite ? 'text-yellow-400 fill-yellow-400' : 'text-white'} ${!canModify('archives', 'update', archive.created_by_id) ? 'opacity-50' : ''}`}
@@ -677,17 +679,17 @@ function ArchiveCard({
         </button>
         {(archive.status === 'failed' || archive.status === 'aborted') && (
           <div className="absolute top-2 left-12 px-2 py-1 rounded text-xs bg-status-error/80 text-white">
-            {archive.status === 'aborted' ? 'cancelled' : 'failed'}
+            {archive.status === 'aborted' ? t('archives.card.cancelled') : t('archives.card.failed')}
           </div>
         )}
         {/* Duplicate badge */}
         {archive.duplicate_count > 0 && (
           <div
             className="absolute top-2 right-2 px-2 py-1 rounded text-xs bg-purple-500/80 text-white flex items-center gap-1"
-            title="This model has been printed before"
+            title={t('archives.card.duplicateTitle')}
           >
             <Copy className="w-3 h-3" />
-            duplicate
+            {t('archives.card.duplicate')}
           </div>
         )}
         {/* Source 3MF badge */}
@@ -701,7 +703,7 @@ function ArchiveCard({
               const downloadUrl = `${window.location.origin}${api.getSource3mfForSlicer(archive.id, sourceName)}`;
               openInSlicer(downloadUrl);
             }}
-            title="Open source 3MF in Bambu Studio (right-click for more options)"
+            title={t('archives.card.openSource3mf')}
           >
             <FileCode className="w-4 h-4 text-orange-400" />
           </button>
@@ -713,9 +715,11 @@ function ArchiveCard({
             onClick={(e) => {
               e.stopPropagation();
               // Download F3D file
-              window.location.href = api.getF3dDownloadUrl(archive.id);
+              api.downloadF3d(archive.id).catch((err) => {
+                console.error('F3D download failed:', err);
+              });
             }}
-            title="Download Fusion 360 design file"
+            title={t('archives.card.downloadF3d')}
           >
             <Box className="w-4 h-4 text-cyan-400" />
           </button>
@@ -728,7 +732,7 @@ function ArchiveCard({
               e.stopPropagation();
               setShowTimelapse(true);
             }}
-            title="View timelapse"
+            title={t('archives.card.viewTimelapse')}
           >
             <Film className="w-4 h-4 text-bambu-green" />
           </button>
@@ -741,7 +745,7 @@ function ArchiveCard({
               e.stopPropagation();
               setShowPhotos(true);
             }}
-            title={`View ${archive.photos.length} photo${archive.photos.length > 1 ? 's' : ''}`}
+            title={archive.photos.length === 1 ? t('archives.card.viewPhoto') : t('archives.card.viewPhotos', { count: archive.photos.length })}
           >
             <Camera className="w-4 h-4 text-blue-400" />
             {archive.photos.length > 1 && (
@@ -757,7 +761,7 @@ function ArchiveCard({
             to={`/files?folder=${linkedFolders[0].id}`}
             className="absolute bottom-2 p-1.5 rounded bg-black/60 hover:bg-black/80 transition-colors"
             onClick={(e) => e.stopPropagation()}
-            title={`Open folder: ${linkedFolders[0].name}`}
+            title={t('archives.card.openFolder', { name: linkedFolders[0].name })}
             style={{ left: archive.source_3mf_path ? (archive.f3d_path ? '5.5rem' : '3rem') : (archive.f3d_path ? '3rem' : '0.5rem') }}
           >
             <FolderOpen className="w-4 h-4 text-yellow-400" />
@@ -781,11 +785,11 @@ function ArchiveCard({
             }`}
             title={
               isSlicedFile(archive.filename)
-                ? 'Sliced file - ready to print'
-                : 'Source file only - no AMS mapping available'
+                ? t('archives.card.slicedFile')
+                : t('archives.card.sourceFile')
             }
           >
-            {isSlicedFile(archive.filename) ? 'GCODE' : 'SOURCE'}
+            {isSlicedFile(archive.filename) ? t('archives.card.gcode') : t('archives.card.source')}
           </span>
           {archive.project_name && (
             <span
@@ -794,7 +798,7 @@ function ArchiveCard({
                 backgroundColor: `${projects?.find(p => p.id === archive.project_id)?.color || '#6b7280'}20`,
                 color: projects?.find(p => p.id === archive.project_id)?.color || '#6b7280'
               }}
-              title={`Project: ${archive.project_name}`}
+              title={t('archives.card.project', { name: archive.project_name })}
             >
               {archive.project_name}
             </span>
@@ -835,19 +839,19 @@ function ArchiveCard({
           {(archive.layer_height || archive.total_layers) && (
             <div className="flex items-center gap-1.5 text-bambu-gray">
               <Layers className="w-3 h-3" />
-              {archive.total_layers && <span>{archive.total_layers} layers</span>}
+              {archive.total_layers && <span>{archive.total_layers === 1 ? t('archives.card.layer', { count: archive.total_layers }) : t('archives.card.layers', { count: archive.total_layers })}</span>}
               {archive.total_layers && archive.layer_height && <span className="text-bambu-gray/50">·</span>}
               {archive.layer_height && <span>{archive.layer_height}mm</span>}
             </div>
           )}
           {archive.object_count != null && archive.object_count > 0 && (
-            <div className="flex items-center gap-1.5 text-bambu-gray" title={`${archive.object_count} object${archive.object_count > 1 ? 's' : ''}`}>
+            <div className="flex items-center gap-1.5 text-bambu-gray" title={archive.object_count === 1 ? t('archives.card.object', { count: archive.object_count }) : t('archives.card.objects', { count: archive.object_count })}>
               <Box className="w-3 h-3" />
-              {archive.object_count} object{archive.object_count > 1 ? 's' : ''}
+              {archive.object_count === 1 ? t('archives.card.object', { count: archive.object_count }) : t('archives.card.objects', { count: archive.object_count })}
             </div>
           )}
           {archive.sliced_for_model && (
-            <div className="flex items-center gap-1.5 text-bambu-gray" title={`Sliced for ${archive.sliced_for_model}`}>
+            <div className="flex items-center gap-1.5 text-bambu-gray" title={t('archives.card.slicedFor', { model: archive.sliced_for_model })}>
               <Printer className="w-3 h-3" />
               {archive.sliced_for_model}
             </div>
@@ -901,7 +905,7 @@ function ArchiveCard({
           <span>{formatDateTime(archive.created_at, timeFormat)}</span>
           <div className="flex items-center gap-2">
             {archive.created_by_username && (
-              <span className="flex items-center gap-1" title={`Uploaded by ${archive.created_by_username}`}>
+              <span className="flex items-center gap-1" title={t('archives.card.uploadedBy', { name: archive.created_by_username })}>
                 <User className="w-3 h-3" />
                 {archive.created_by_username}
               </span>
@@ -921,10 +925,10 @@ function ArchiveCard({
                 className="flex-1 min-w-0"
                 onClick={() => setShowReprint(true)}
                 disabled={!canModify('archives', 'reprint', archive.created_by_id)}
-                title={!canModify('archives', 'reprint', archive.created_by_id) ? 'You do not have permission to reprint' : undefined}
+                title={!canModify('archives', 'reprint', archive.created_by_id) ? t('archives.card.noPermissionReprint') : undefined}
               >
                 <Printer className="w-3 h-3 flex-shrink-0" />
-                <span className="hidden sm:inline">Reprint</span>
+                <span className="hidden sm:inline">{t('archives.card.reprint')}</span>
               </Button>
               <Button
                 variant="secondary"
@@ -932,10 +936,10 @@ function ArchiveCard({
                 className="flex-1 min-w-0"
                 onClick={() => setShowSchedule(true)}
                 disabled={!hasPermission('queue:create')}
-                title={!hasPermission('queue:create') ? 'You do not have permission to add to queue' : 'Schedule Print'}
+                title={!hasPermission('queue:create') ? t('archives.permission.noAddToQueue') : t('archives.card.schedulePrint')}
               >
                 <Calendar className="w-3 h-3 flex-shrink-0" />
-                <span className="hidden sm:inline">Schedule</span>
+                <span className="hidden sm:inline">{t('archives.card.schedule')}</span>
               </Button>
               <Button
                 variant="secondary"
@@ -946,7 +950,7 @@ function ArchiveCard({
                   const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
                   openInSlicer(downloadUrl);
                 }}
-                title="Open in Bambu Studio"
+                title={t('archives.card.openInBambuStudio')}
               >
                 <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4" />
               </Button>
@@ -962,10 +966,10 @@ function ArchiveCard({
                 const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
                 openInSlicer(downloadUrl);
               }}
-              title="Open in Bambu Studio to slice"
+              title={t('archives.card.openInBambuStudioToSlice')}
             >
               <ExternalLink className="w-3 h-3 flex-shrink-0" />
-              <span className="hidden sm:inline">Slice</span>
+              <span className="hidden sm:inline">{t('archives.card.slice')}</span>
             </Button>
           )}
           <Button
@@ -979,10 +983,10 @@ function ArchiveCard({
             disabled={!archive.external_url && !archive.makerworld_url}
             title={
               archive.external_url
-                ? 'External Link'
+                ? t('archives.card.externalLink')
                 : archive.makerworld_url
-                  ? `MakerWorld: ${archive.designer || 'View project'}`
-                  : 'No external link'
+                  ? t('archives.card.makerWorld', { designer: archive.designer || t('archives.card.viewProject') })
+                  : t('archives.card.noExternalLink')
             }
           >
             <Globe className={`w-3 h-3 sm:w-4 sm:h-4 ${!archive.external_url && !archive.makerworld_url ? 'opacity-20' : ''}`} />
@@ -992,7 +996,7 @@ function ArchiveCard({
             size="sm"
             className="min-w-0 p-1 sm:p-1.5"
             onClick={() => setShowViewer(true)}
-            title="3D Preview"
+            title={t('archives.card.preview3d')}
           >
             <Box className="w-3 h-3 sm:w-4 sm:h-4" />
           </Button>
@@ -1001,12 +1005,11 @@ function ArchiveCard({
             size="sm"
             className="min-w-0 p-1 sm:p-1.5"
             onClick={() => {
-              const link = document.createElement('a');
-              link.href = api.getArchiveDownload(archive.id);
-              link.download = `${archive.print_name || archive.filename}.3mf`;
-              link.click();
+              api.downloadArchive(archive.id, `${archive.print_name || archive.filename}.3mf`).catch((err) => {
+                console.error('Archive download failed:', err);
+              });
             }}
-            title="Download"
+            title={t('archives.card.download')}
           >
             <Download className="w-3 h-3 sm:w-4 sm:h-4" />
           </Button>
@@ -1016,7 +1019,7 @@ function ArchiveCard({
             className="min-w-0 p-1 sm:p-1.5"
             onClick={() => setShowEdit(true)}
             disabled={!canModify('archives', 'update', archive.created_by_id)}
-            title={!canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to edit archives' : 'Edit'}
+            title={!canModify('archives', 'update', archive.created_by_id) ? t('archives.card.noPermissionEdit') : t('archives.card.edit')}
           >
             <Pencil className="w-3 h-3 sm:w-4 sm:h-4" />
           </Button>
@@ -1026,7 +1029,7 @@ function ArchiveCard({
             className="min-w-0 p-1 sm:p-1.5"
             onClick={() => setShowDeleteConfirm(true)}
             disabled={!canModify('archives', 'delete', archive.created_by_id)}
-            title={!canModify('archives', 'delete', archive.created_by_id) ? 'You do not have permission to delete archives' : 'Delete'}
+            title={!canModify('archives', 'delete', archive.created_by_id) ? t('archives.card.noPermissionDelete') : t('archives.card.delete')}
           >
             <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
           </Button>
@@ -1064,9 +1067,9 @@ function ArchiveCard({
       {/* Delete Confirmation */}
       {showDeleteConfirm && (
         <ConfirmModal
-          title="Delete Archive"
-          message={`Are you sure you want to delete "${archive.print_name || archive.filename}"? This action cannot be undone.`}
-          confirmText="Delete"
+          title={t('archives.modal.deleteArchive')}
+          message={t('archives.modal.deleteConfirm', { name: archive.print_name || archive.filename })}
+          confirmText={t('archives.modal.deleteButton')}
           variant="danger"
           onConfirm={() => {
             deleteMutation.mutate();
@@ -1079,9 +1082,9 @@ function ArchiveCard({
       {/* Delete Source 3MF Confirmation */}
       {showDeleteSource3mfConfirm && (
         <ConfirmModal
-          title="Remove Source 3MF"
-          message={`Are you sure you want to remove the source 3MF file from "${archive.print_name || archive.filename}"? This will delete the original slicer project file.`}
-          confirmText="Remove"
+          title={t('archives.modal.removeSource3mf')}
+          message={t('archives.modal.removeSource3mfConfirm', { name: archive.print_name || archive.filename })}
+          confirmText={t('archives.modal.removeButton')}
           variant="danger"
           onConfirm={() => {
             source3mfDeleteMutation.mutate();
@@ -1094,9 +1097,9 @@ function ArchiveCard({
       {/* Delete F3D Confirmation */}
       {showDeleteF3dConfirm && (
         <ConfirmModal
-          title="Remove F3D"
-          message={`Are you sure you want to remove the Fusion 360 design file from "${archive.print_name || archive.filename}"?`}
-          confirmText="Remove"
+          title={t('archives.modal.removeF3d')}
+          message={t('archives.modal.removeF3dConfirm', { name: archive.print_name || archive.filename })}
+          confirmText={t('archives.modal.removeButton')}
           variant="danger"
           onConfirm={() => {
             f3dDeleteMutation.mutate();
@@ -1120,7 +1123,7 @@ function ArchiveCard({
       {showTimelapse && archive.timelapse_path && (
         <TimelapseViewer
           src={api.getArchiveTimelapse(archive.id)}
-          title={`${archive.print_name || archive.filename} - Timelapse`}
+          title={t('archives.modal.timelapse', { name: archive.print_name || archive.filename })}
           downloadFilename={`${archive.print_name || archive.filename}_timelapse.mp4`}
           archiveId={archive.id}
           onClose={() => setShowTimelapse(false)}
@@ -1207,9 +1210,9 @@ function ArchiveCard({
             try {
               await api.deleteArchivePhoto(archive.id, filename);
               queryClient.invalidateQueries({ queryKey: ['archives'] });
-              showToast('Photo deleted');
+              showToast(t('archives.toast.photoDeleted'));
             } catch {
-              showToast('Failed to delete photo', 'error');
+              showToast(t('archives.toast.failedDeletePhoto'), 'error');
             }
           }}
         />
@@ -1273,6 +1276,7 @@ function ArchiveListRow({
   selectionMode,
   projects,
   isHighlighted,
+  t,
 }: {
   archive: Archive;
   printerName: string;
@@ -1281,6 +1285,7 @@ function ArchiveListRow({
   selectionMode: boolean;
   projects: ProjectListItem[] | undefined;
   isHighlighted?: boolean;
+  t: TFunction;
 }) {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -1306,10 +1311,10 @@ function ArchiveListRow({
     mutationFn: (file: File) => api.uploadSource3mf(archive.id, file),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(`Source 3MF attached: ${data.filename}`);
+      showToast(t('archives.toast.source3mfAttached', { filename: data.filename }));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to upload source 3MF', 'error');
+      showToast(error.message || t('archives.toast.failedUploadSource3mf'), 'error');
     },
   });
 
@@ -1317,10 +1322,10 @@ function ArchiveListRow({
     mutationFn: () => api.deleteSource3mf(archive.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast('Source 3MF removed');
+      showToast(t('archives.toast.source3mfRemoved'));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to remove source 3MF', 'error');
+      showToast(error.message || t('archives.toast.failedRemoveSource3mf'), 'error');
     },
   });
 
@@ -1328,10 +1333,10 @@ function ArchiveListRow({
     mutationFn: (file: File) => api.uploadF3d(archive.id, file),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(`F3D attached: ${data.filename}`);
+      showToast(t('archives.toast.f3dAttached', { filename: data.filename }));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to upload F3D', 'error');
+      showToast(error.message || t('archives.toast.failedUploadF3d'), 'error');
     },
   });
 
@@ -1339,10 +1344,10 @@ function ArchiveListRow({
     mutationFn: () => api.deleteF3d(archive.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast('F3D removed');
+      showToast(t('archives.toast.f3dRemoved'));
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to remove F3D', 'error');
+      showToast(error.message || t('archives.toast.failedRemoveF3d'), 'error');
     },
   });
 
@@ -1351,18 +1356,18 @@ function ArchiveListRow({
     onSuccess: (data) => {
       if (data.status === 'attached') {
         queryClient.invalidateQueries({ queryKey: ['archives'] });
-        showToast(`Timelapse attached: ${data.filename}`);
+        showToast(t('archives.toast.timelapseAttached', { filename: data.filename }));
       } else if (data.status === 'exists') {
-        showToast('Timelapse already attached');
+        showToast(t('archives.toast.timelapseAlreadyAttached'));
       } else if (data.status === 'not_found' && data.available_files && data.available_files.length > 0) {
         setAvailableTimelapses(data.available_files);
         setShowTimelapseSelect(true);
       } else {
-        showToast(data.message || 'No matching timelapse found', 'warning');
+        showToast(data.message || t('archives.toast.noMatchingTimelapse'), 'warning');
       }
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to scan for timelapse', 'error');
+      showToast(error.message || t('archives.toast.failedScanTimelapse'), 'error');
     },
   });
 
@@ -1370,12 +1375,12 @@ function ArchiveListRow({
     mutationFn: (filename: string) => api.selectArchiveTimelapse(archive.id, filename),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(`Timelapse attached: ${data.filename}`);
+      showToast(t('archives.toast.timelapseAttached', { filename: data.filename }));
       setShowTimelapseSelect(false);
       setAvailableTimelapses([]);
     },
     onError: (error: Error) => {
-      showToast(error.message || 'Failed to attach timelapse', 'error');
+      showToast(error.message || t('archives.toast.failedAttachTimelapse'), 'error');
     },
   });
 
@@ -1383,10 +1388,10 @@ function ArchiveListRow({
     mutationFn: () => api.deleteArchive(archive.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast('Archive deleted');
+      showToast(t('archives.toast.archiveDeleted'));
     },
     onError: () => {
-      showToast('Failed to delete archive', 'error');
+      showToast(t('archives.toast.failedDeleteArchive'), 'error');
     },
   });
 
@@ -1394,7 +1399,7 @@ function ArchiveListRow({
     mutationFn: () => api.toggleFavorite(archive.id),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
-      showToast(data.is_favorite ? 'Added to favorites' : 'Removed from favorites');
+      showToast(data.is_favorite ? t('archives.toast.addedToFavorites') : t('archives.toast.removedFromFavorites'));
     },
   });
 
@@ -1409,10 +1414,10 @@ function ArchiveListRow({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archives'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      showToast('Project updated');
+      showToast(t('archives.toast.projectUpdated'));
     },
     onError: () => {
-      showToast('Failed to update project', 'error');
+      showToast(t('archives.toast.failedUpdateProject'), 'error');
     },
   });
 
@@ -1426,21 +1431,21 @@ function ArchiveListRow({
   const contextMenuItems: ContextMenuItem[] = [
     ...(isGcodeFile ? [
       {
-        label: 'Print',
+        label: t('archives.menu.print'),
         icon: <Printer className="w-4 h-4" />,
         onClick: () => setShowReprint(true),
         disabled: !canModify('archives', 'reprint', archive.created_by_id),
-        title: !canModify('archives', 'reprint', archive.created_by_id) ? 'You do not have permission to reprint this archive' : undefined,
+        title: !canModify('archives', 'reprint', archive.created_by_id) ? t('archives.permission.noReprint') : undefined,
       },
       {
-        label: 'Schedule',
+        label: t('archives.menu.schedule'),
         icon: <Calendar className="w-4 h-4" />,
         onClick: () => setShowSchedule(true),
         disabled: !hasPermission('queue:create'),
-        title: !hasPermission('queue:create') ? 'You do not have permission to add to queue' : undefined,
+        title: !hasPermission('queue:create') ? t('archives.permission.noAddToQueue') : undefined,
       },
       {
-        label: 'Open in Bambu Studio',
+        label: t('archives.menu.openInBambuStudio'),
         icon: <ExternalLink className="w-4 h-4" />,
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
@@ -1450,7 +1455,7 @@ function ArchiveListRow({
       },
     ] : [
       {
-        label: 'Slice',
+        label: t('archives.menu.slice'),
         icon: <ExternalLink className="w-4 h-4" />,
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
@@ -1460,7 +1465,7 @@ function ArchiveListRow({
       },
     ]),
     {
-      label: archive.external_url ? 'External Link' : 'View on MakerWorld',
+      label: archive.external_url ? t('archives.menu.externalLink') : t('archives.menu.viewOnMakerWorld'),
       icon: <Globe className="w-4 h-4" />,
       onClick: () => {
         const url = archive.external_url || archive.makerworld_url;
@@ -1470,159 +1475,156 @@ function ArchiveListRow({
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: '3D Preview',
+      label: t('archives.menu.preview3d'),
       icon: <Box className="w-4 h-4" />,
       onClick: () => setShowViewer(true),
     },
     {
-      label: 'View Timelapse',
+      label: t('archives.menu.viewTimelapse'),
       icon: <Film className="w-4 h-4" />,
       onClick: () => setShowTimelapse(true),
       disabled: !archive.timelapse_path,
     },
     {
-      label: 'Scan for Timelapse',
+      label: t('archives.menu.scanForTimelapse'),
       icon: <ScanSearch className="w-4 h-4" />,
       onClick: () => timelapseScanMutation.mutate(),
       disabled: !archive.printer_id || !!archive.timelapse_path || timelapseScanMutation.isPending || !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update archives' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: archive.source_3mf_path ? 'Download Source 3MF' : 'Upload Source 3MF',
+      label: archive.source_3mf_path ? t('archives.menu.downloadSource3mf') : t('archives.menu.uploadSource3mf'),
       icon: <FileCode className="w-4 h-4" />,
       onClick: () => {
         if (archive.source_3mf_path) {
-          const link = document.createElement('a');
-          link.href = api.getSource3mfDownloadUrl(archive.id);
-          link.download = `${archive.print_name || archive.filename}_source.3mf`;
-          link.click();
+          api.downloadSource3mf(archive.id).catch((err) => {
+            console.error('Source 3MF download failed:', err);
+          });
         } else {
           source3mfInputRef.current?.click();
         }
       },
       disabled: !archive.source_3mf_path && !canModify('archives', 'update', archive.created_by_id),
-      title: !archive.source_3mf_path && !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to upload files' : undefined,
+      title: !archive.source_3mf_path && !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUploadFiles') : undefined,
     },
     ...(archive.source_3mf_path ? [{
-      label: 'Replace Source 3MF',
+      label: t('archives.menu.replaceSource3mf'),
       icon: <Upload className="w-4 h-4" />,
       onClick: () => source3mfInputRef.current?.click(),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     {
-      label: 'Remove Source 3MF',
+      label: t('archives.menu.removeSource3mf'),
       icon: <Trash2 className="w-4 h-4" />,
       onClick: () => setShowDeleteSource3mfConfirm(true),
       danger: true,
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     }] : []),
     {
-      label: archive.f3d_path ? 'Replace F3D' : 'Upload F3D',
+      label: archive.f3d_path ? t('archives.menu.replaceF3d') : t('archives.menu.uploadF3d'),
       icon: <Box className="w-4 h-4" />,
       onClick: () => f3dInputRef.current?.click(),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     ...(archive.f3d_path ? [{
-      label: 'Download F3D',
+      label: t('archives.menu.downloadF3d'),
       icon: <Download className="w-4 h-4" />,
       onClick: () => {
-        const link = document.createElement('a');
-        link.href = api.getF3dDownloadUrl(archive.id);
-        link.download = `${archive.print_name || archive.filename}.f3d`;
-        link.click();
+        api.downloadF3d(archive.id).catch((err) => {
+          console.error('F3D download failed:', err);
+        });
       },
     },
     {
-      label: 'Remove F3D',
+      label: t('archives.menu.removeF3d'),
       icon: <Trash2 className="w-4 h-4" />,
       onClick: () => setShowDeleteF3dConfirm(true),
       danger: true,
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     }] : []),
     { label: '', divider: true, onClick: () => {} },
     {
-      label: 'Download',
+      label: t('archives.menu.download'),
       icon: <Download className="w-4 h-4" />,
       onClick: () => {
-        const link = document.createElement('a');
-        link.href = api.getArchiveDownload(archive.id);
-        link.download = `${archive.print_name || archive.filename}.3mf`;
-        link.click();
+        api.downloadArchive(archive.id, `${archive.print_name || archive.filename}.3mf`).catch((err) => {
+          console.error('Archive download failed:', err);
+        });
       },
       disabled: !hasPermission('archives:read'),
-      title: !hasPermission('archives:read') ? 'You do not have permission to download archives' : undefined,
+      title: !hasPermission('archives:read') ? t('archives.permission.noDownload') : undefined,
     },
     {
-      label: 'Copy Download Link',
+      label: t('archives.menu.copyDownloadLink'),
       icon: <Copy className="w-4 h-4" />,
       onClick: () => {
         const url = `${window.location.origin}${api.getArchiveDownload(archive.id)}`;
         navigator.clipboard.writeText(url).then(() => {
-          showToast('Link copied to clipboard');
+          showToast(t('archives.toast.linkCopied'));
         }).catch(() => {
-          showToast('Failed to copy link', 'error');
+          showToast(t('archives.toast.failedCopyLink'), 'error');
         });
       },
       disabled: !hasPermission('archives:read'),
-      title: !hasPermission('archives:read') ? 'You do not have permission to copy download links' : undefined,
+      title: !hasPermission('archives:read') ? t('archives.permission.noCopyLink') : undefined,
     },
     {
-      label: 'QR Code',
+      label: t('archives.menu.qrCode'),
       icon: <QrCode className="w-4 h-4" />,
       onClick: () => setShowQRCode(true),
     },
     {
-      label: `View Photos${archive.photos?.length ? ` (${archive.photos.length})` : ''}`,
+      label: archive.photos?.length ? t('archives.menu.viewPhotosCount', { count: archive.photos.length }) : t('archives.menu.viewPhotos'),
       icon: <Camera className="w-4 h-4" />,
       onClick: () => setShowPhotos(true),
       disabled: !archive.photos?.length,
     },
     {
-      label: 'Project Page',
+      label: t('archives.menu.projectPage'),
       icon: <FileText className="w-4 h-4" />,
       onClick: () => setShowProjectPage(true),
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: archive.is_favorite ? 'Remove from Favorites' : 'Add to Favorites',
+      label: archive.is_favorite ? t('archives.menu.removeFromFavorites') : t('archives.menu.addToFavorites'),
       icon: <Star className={`w-4 h-4 ${archive.is_favorite ? 'fill-yellow-400 text-yellow-400' : ''}`} />,
       onClick: () => favoriteMutation.mutate(),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     {
-      label: 'Edit',
+      label: t('archives.menu.edit'),
       icon: <Pencil className="w-4 h-4" />,
       onClick: () => setShowEdit(true),
       disabled: !canModify('archives', 'update', archive.created_by_id),
-      title: !canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to update this archive' : undefined,
+      title: !canModify('archives', 'update', archive.created_by_id) ? t('archives.permission.noUpdateArchives') : undefined,
     },
     ...(archive.project_id && archive.project_name ? [{
-      label: `Go to Project: ${archive.project_name}`,
+      label: t('archives.menu.goToProject', { name: archive.project_name }),
       icon: <FolderKanban className="w-4 h-4 text-bambu-green" />,
       onClick: () => window.location.href = '/projects',
     }] : []),
     {
-      label: 'Add to Project',
+      label: t('archives.menu.addToProject'),
       icon: <FolderKanban className="w-4 h-4" />,
       onClick: () => {},
       submenu: (() => {
         const items: ContextMenuItem[] = [];
         if (archive.project_id) {
           items.push({
-            label: 'Remove from Project',
+            label: t('archives.menu.removeFromProject'),
             icon: <X className="w-4 h-4" />,
             onClick: () => assignProjectMutation.mutate(null),
           });
         }
         if (!projects) {
           items.push({
-            label: 'Loading...',
+            label: t('archives.menu.loading'),
             icon: <Loader2 className="w-4 h-4 animate-spin" />,
             onClick: () => {},
             disabled: true,
@@ -1631,7 +1633,7 @@ function ArchiveListRow({
           const activeProjects = projects.filter(p => p.status === 'active');
           if (activeProjects.length === 0) {
             items.push({
-              label: 'No projects available',
+              label: t('archives.menu.noProjectsAvailable'),
               icon: <FolderKanban className="w-4 h-4 opacity-50" />,
               onClick: () => {},
               disabled: true,
@@ -1651,18 +1653,18 @@ function ArchiveListRow({
       })(),
     },
     {
-      label: isSelected ? 'Deselect' : 'Select',
+      label: isSelected ? t('archives.menu.deselect') : t('archives.menu.select'),
       icon: isSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />,
       onClick: () => onSelect(archive.id),
     },
     { label: '', divider: true, onClick: () => {} },
     {
-      label: 'Delete',
+      label: t('archives.menu.delete'),
       icon: <Trash2 className="w-4 h-4" />,
       onClick: () => setShowDeleteConfirm(true),
       danger: true,
       disabled: !canModify('archives', 'delete', archive.created_by_id),
-      title: !canModify('archives', 'delete', archive.created_by_id) ? 'You do not have permission to delete this archive' : undefined,
+      title: !canModify('archives', 'delete', archive.created_by_id) ? t('archives.permission.noDelete') : undefined,
     },
   ];
 
@@ -1702,7 +1704,7 @@ function ArchiveListRow({
           <div className="flex items-center gap-2">
             <p className="text-white text-sm truncate">{archive.print_name || archive.filename}</p>
             {archive.timelapse_path && (
-              <span title="Has timelapse">
+              <span title={t('archives.list.hasTimelapse')}>
                 <Film className="w-3.5 h-3.5 text-bambu-green flex-shrink-0" />
               </span>
             )}
@@ -1710,7 +1712,7 @@ function ArchiveListRow({
               <Link
                 to={`/files?folder=${linkedFolders[0].id}`}
                 className="flex-shrink-0"
-                title={`Open folder: ${linkedFolders[0].name}`}
+                title={t('archives.card.openFolder', { name: linkedFolders[0].name })}
                 onClick={(e) => e.stopPropagation()}
               >
                 <FolderOpen className="w-3.5 h-3.5 text-yellow-400" />
@@ -1720,7 +1722,7 @@ function ArchiveListRow({
           {(archive.filament_type || archive.sliced_for_model) && (
             <div className="flex items-center gap-1.5 mt-0.5">
               {archive.sliced_for_model && (
-                <span className="text-xs text-bambu-gray flex items-center gap-1" title={`Sliced for ${archive.sliced_for_model}`}>
+                <span className="text-xs text-bambu-gray flex items-center gap-1" title={t('archives.card.slicedFor', { model: archive.sliced_for_model })}>
                   <Printer className="w-2.5 h-2.5" />
                   {archive.sliced_for_model}
                 </span>
@@ -1752,7 +1754,7 @@ function ArchiveListRow({
         <div className="col-span-2 text-sm text-bambu-gray">
           <div>{formatDateOnly(archive.created_at)}</div>
           {archive.created_by_username && (
-            <div className="flex items-center gap-1 text-xs opacity-75" title={`Uploaded by ${archive.created_by_username}`}>
+            <div className="flex items-center gap-1 text-xs opacity-75" title={t('archives.card.uploadedBy', { name: archive.created_by_username })}>
               <User className="w-3 h-3" />
               {archive.created_by_username}
             </div>
@@ -1770,7 +1772,7 @@ function ArchiveListRow({
               const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
               openInSlicer(downloadUrl);
             }}
-            title="Open in Bambu Studio"
+            title={t('archives.card.openInBambuStudio')}
           >
             <ExternalLink className="w-4 h-4" />
           </Button>
@@ -1779,7 +1781,7 @@ function ArchiveListRow({
               variant="ghost"
               size="sm"
               onClick={() => window.open((archive.external_url || archive.makerworld_url)!, '_blank')}
-              title={archive.external_url ? 'External Link' : 'MakerWorld'}
+              title={archive.external_url ? t('archives.card.externalLink') : 'MakerWorld'}
             >
               <Globe className="w-4 h-4" />
             </Button>
@@ -1788,12 +1790,11 @@ function ArchiveListRow({
             variant="ghost"
             size="sm"
             onClick={() => {
-              const link = document.createElement('a');
-              link.href = api.getArchiveDownload(archive.id);
-              link.download = `${archive.print_name || archive.filename}.3mf`;
-              link.click();
+              api.downloadArchive(archive.id, `${archive.print_name || archive.filename}.3mf`).catch((err) => {
+                console.error('Archive download failed:', err);
+              });
             }}
-            title="Download"
+            title={t('archives.card.download')}
           >
             <Download className="w-4 h-4" />
           </Button>
@@ -1802,7 +1803,7 @@ function ArchiveListRow({
             size="sm"
             onClick={() => setShowEdit(true)}
             disabled={!canModify('archives', 'update', archive.created_by_id)}
-            title={!canModify('archives', 'update', archive.created_by_id) ? 'You do not have permission to edit archives' : 'Edit'}
+            title={!canModify('archives', 'update', archive.created_by_id) ? t('archives.card.noPermissionEdit') : t('archives.card.edit')}
           >
             <Pencil className="w-4 h-4" />
           </Button>
@@ -1811,7 +1812,7 @@ function ArchiveListRow({
             size="sm"
             onClick={() => setShowDeleteConfirm(true)}
             disabled={!canModify('archives', 'delete', archive.created_by_id)}
-            title={!canModify('archives', 'delete', archive.created_by_id) ? 'You do not have permission to delete archives' : 'Delete'}
+            title={!canModify('archives', 'delete', archive.created_by_id) ? t('archives.card.noPermissionDelete') : t('archives.card.delete')}
           >
             <Trash2 className="w-4 h-4 text-red-400" />
           </Button>
@@ -1822,7 +1823,7 @@ function ArchiveListRow({
               const rect = e.currentTarget.getBoundingClientRect();
               setContextMenu({ x: rect.left, y: rect.bottom + 4 });
             }}
-            title="More options"
+            title={t('archives.card.moreOptions')}
           >
             <MoreVertical className="w-4 h-4" />
           </Button>
@@ -1860,9 +1861,9 @@ function ArchiveListRow({
       {/* Delete Confirmation */}
       {showDeleteConfirm && (
         <ConfirmModal
-          title="Delete Archive"
-          message={`Are you sure you want to delete "${archive.print_name || archive.filename}"? This action cannot be undone.`}
-          confirmText="Delete"
+          title={t('archives.modal.deleteArchive')}
+          message={t('archives.modal.deleteConfirm', { name: archive.print_name || archive.filename })}
+          confirmText={t('archives.modal.deleteButton')}
           variant="danger"
           onConfirm={() => {
             deleteMutation.mutate();
@@ -1875,9 +1876,9 @@ function ArchiveListRow({
       {/* Delete Source 3MF Confirmation */}
       {showDeleteSource3mfConfirm && (
         <ConfirmModal
-          title="Remove Source 3MF"
-          message={`Are you sure you want to remove the source 3MF file from "${archive.print_name || archive.filename}"?`}
-          confirmText="Remove"
+          title={t('archives.modal.removeSource3mf')}
+          message={t('archives.modal.removeSource3mfConfirm', { name: archive.print_name || archive.filename })}
+          confirmText={t('archives.modal.removeButton')}
           variant="danger"
           onConfirm={() => {
             source3mfDeleteMutation.mutate();
@@ -1890,9 +1891,9 @@ function ArchiveListRow({
       {/* Delete F3D Confirmation */}
       {showDeleteF3dConfirm && (
         <ConfirmModal
-          title="Remove F3D"
-          message={`Are you sure you want to remove the Fusion 360 design file from "${archive.print_name || archive.filename}"?`}
-          confirmText="Remove"
+          title={t('archives.modal.removeF3d')}
+          message={t('archives.modal.removeF3dConfirm', { name: archive.print_name || archive.filename })}
+          confirmText={t('archives.modal.removeButton')}
           variant="danger"
           onConfirm={() => {
             f3dDeleteMutation.mutate();
@@ -1916,7 +1917,7 @@ function ArchiveListRow({
       {showTimelapse && archive.timelapse_path && (
         <TimelapseViewer
           src={api.getArchiveTimelapse(archive.id)}
-          title={`${archive.print_name || archive.filename} - Timelapse`}
+          title={t('archives.modal.timelapse', { name: archive.print_name || archive.filename })}
           downloadFilename={`${archive.print_name || archive.filename}_timelapse.mp4`}
           archiveId={archive.id}
           onClose={() => setShowTimelapse(false)}
@@ -1990,9 +1991,9 @@ function ArchiveListRow({
             try {
               await api.deleteArchivePhoto(archive.id, filename);
               queryClient.invalidateQueries({ queryKey: ['archives'] });
-              showToast('Photo deleted');
+              showToast(t('archives.toast.photoDeleted'));
             } catch {
-              showToast('Failed to delete photo', 'error');
+              showToast(t('archives.toast.failedDeletePhoto'), 'error');
             }
           }}
         />
@@ -2064,6 +2065,7 @@ const collections: { id: Collection; label: string; icon: React.ReactNode }[] = 
 ];
 
 export function ArchivesPage() {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
   const { hasPermission, hasAnyPermission } = useAuth();
@@ -2171,7 +2173,7 @@ export function ArchivesPage() {
       showToast(`${count} archive${count !== 1 ? 's' : ''} deleted`);
     },
     onError: () => {
-      showToast('Failed to delete archives', 'error');
+      showToast(t('archives.toast.failedDeleteArchives'), 'error');
     },
   });
 
@@ -2404,9 +2406,9 @@ export function ArchivesPage() {
       setUploadFiles(droppedFiles);
       setShowUpload(true);
     } else if (e.dataTransfer.files.length > 0) {
-      showToast('Only .3mf files are supported', 'warning');
+      showToast(t('archives.page.only3mfSupported'), 'warning');
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -2457,7 +2459,7 @@ export function ArchivesPage() {
           <div className="border-4 border-dashed border-bambu-green rounded-xl p-12 text-center">
             <Upload className="w-16 h-16 mx-auto mb-4 text-bambu-green" />
             <p className="text-2xl font-semibold text-white mb-2">Drop .3mf files here</p>
-            <p className="text-bambu-gray">Release to upload</p>
+            <p className="text-bambu-gray">{t('archives.releaseToUpload')}</p>
           </div>
         </div>
       )}
@@ -2483,7 +2485,7 @@ export function ArchivesPage() {
             size="sm"
             onClick={() => setShowBatchTag(true)}
             disabled={!hasAnyPermission('archives:update_own', 'archives:update_all')}
-            title={!hasAnyPermission('archives:update_own', 'archives:update_all') ? 'You do not have permission to update archives' : undefined}
+            title={!hasAnyPermission('archives:update_own', 'archives:update_all') ? t('archives.permission.noUpdateArchives') : undefined}
           >
             <Tag className="w-4 h-4" />
             Tags
@@ -2493,7 +2495,7 @@ export function ArchivesPage() {
             size="sm"
             onClick={() => setShowBatchProject(true)}
             disabled={!hasAnyPermission('archives:update_own', 'archives:update_all')}
-            title={!hasAnyPermission('archives:update_own', 'archives:update_all') ? 'You do not have permission to update archives' : undefined}
+            title={!hasAnyPermission('archives:update_own', 'archives:update_all') ? t('archives.permission.noUpdateArchives') : undefined}
           >
             <FolderKanban className="w-4 h-4" />
             Project
@@ -2502,7 +2504,7 @@ export function ArchivesPage() {
             variant="secondary"
             size="sm"
             disabled={!hasAnyPermission('archives:update_own', 'archives:update_all')}
-            title={!hasAnyPermission('archives:update_own', 'archives:update_all') ? 'You do not have permission to update archives' : undefined}
+            title={!hasAnyPermission('archives:update_own', 'archives:update_all') ? t('archives.permission.noUpdateArchives') : undefined}
             onClick={() => {
               const ids = Array.from(selectedIds);
               Promise.all(ids.map(id => api.toggleFavorite(id)))
@@ -2511,7 +2513,7 @@ export function ArchivesPage() {
                   showToast(`Toggled favorites for ${ids.length} archive${ids.length !== 1 ? 's' : ''}`);
                 })
                 .catch(() => {
-                  showToast('Failed to update favorites', 'error');
+                  showToast(t('archives.toast.failedUpdateFavorites'), 'error');
                 });
             }}
           >
@@ -2523,7 +2525,7 @@ export function ArchivesPage() {
             className="bg-red-500 hover:bg-red-600"
             onClick={() => setShowBulkDeleteConfirm(true)}
             disabled={!hasAnyPermission('archives:delete_own', 'archives:delete_all')}
-            title={!hasAnyPermission('archives:delete_own', 'archives:delete_all') ? 'You do not have permission to delete archives' : undefined}
+            title={!hasAnyPermission('archives:delete_own', 'archives:delete_all') ? t('archives.permission.noDelete') : undefined}
           >
             <Trash2 className="w-4 h-4" />
             Delete
@@ -2586,9 +2588,9 @@ export function ArchivesPage() {
                       a.download = filename;
                       a.click();
                       URL.revokeObjectURL(url);
-                      showToast('Export downloaded');
+                      showToast(t('archives.toast.exportDownloaded'));
                     } catch {
-                      showToast('Export failed', 'error');
+                      showToast(t('archives.toast.exportFailed'), 'error');
                     } finally {
                       setIsExporting(false);
                     }
@@ -2615,9 +2617,9 @@ export function ArchivesPage() {
                       a.download = filename;
                       a.click();
                       URL.revokeObjectURL(url);
-                      showToast('Export downloaded');
+                      showToast(t('archives.toast.exportDownloaded'));
                     } catch {
-                      showToast('Export failed', 'error');
+                      showToast(t('archives.toast.exportFailed'), 'error');
                     } finally {
                       setIsExporting(false);
                     }
@@ -2648,7 +2650,7 @@ export function ArchivesPage() {
           <Button
             onClick={() => setShowUpload(true)}
             disabled={!hasPermission('archives:create')}
-            title={!hasPermission('archives:create') ? 'You do not have permission to create archives' : undefined}
+            title={!hasPermission('archives:create') ? t('archives.permission.noCreate') : undefined}
           >
             <Upload className="w-4 h-4" />
             Upload 3MF
@@ -2666,7 +2668,7 @@ export function ArchivesPage() {
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Search archives..."
+                placeholder={t('archives.searchPlaceholder')}
                 className="w-full pl-10 pr-4 py-3 md:py-2 bg-bambu-dark border border-bambu-dark-tertiary rounded-lg text-white focus:border-bambu-green focus:outline-none"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -2727,7 +2729,7 @@ export function ArchivesPage() {
                   ? 'bg-yellow-500/20 border-yellow-500 text-yellow-400'
                   : 'bg-bambu-dark border-bambu-dark-tertiary text-bambu-gray hover:text-white'
               }`}
-              title={filterFavorites ? 'Show all' : 'Show favorites only'}
+              title={filterFavorites ? t('archives.showAll') : t('archives.showFavoritesOnly')}
             >
               <Star className={`w-4 h-4 ${filterFavorites ? 'fill-yellow-400' : ''}`} />
               <span className="text-sm hidden md:inline">Favorites</span>
@@ -2739,7 +2741,7 @@ export function ArchivesPage() {
                   ? 'bg-red-500/20 border-red-500 text-red-400'
                   : 'bg-bambu-dark border-bambu-dark-tertiary text-bambu-gray hover:text-white'
               }`}
-              title={hideFailed ? 'Show failed prints' : 'Hide failed prints'}
+              title={hideFailed ? t('archives.showFailedPrints') : t('archives.hideFailedPrints')}
             >
               <AlertCircle className={`w-4 h-4 ${hideFailed ? '' : ''}`} />
               <span className="text-sm hidden md:inline">Hide Failed</span>
@@ -2762,7 +2764,7 @@ export function ArchivesPage() {
                 <button
                   onClick={() => setShowTagManagement(true)}
                   className="p-2 rounded-lg bg-bambu-dark border border-bambu-dark-tertiary text-bambu-gray hover:text-white hover:border-bambu-green transition-colors"
-                  title="Manage Tags"
+                  title={t('archives.manageTags')}
                 >
                   <Settings className="w-4 h-4" />
                 </button>
@@ -2775,33 +2777,33 @@ export function ArchivesPage() {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
               >
-                <option value="date-desc">Newest first</option>
-                <option value="date-asc">Oldest first</option>
-                <option value="name-asc">Name A-Z</option>
-                <option value="name-desc">Name Z-A</option>
-                <option value="size-desc">Largest first</option>
-                <option value="size-asc">Smallest first</option>
+                <option value="date-desc">{t('archives.sortNewest')}</option>
+                <option value="date-asc">{t('archives.sortOldest')}</option>
+                <option value="name-asc">{t('archives.sortName')} A-Z</option>
+                <option value="name-desc">{t('archives.sortName')} Z-A</option>
+                <option value="size-desc">{t('archives.sortLargest')}</option>
+                <option value="size-asc">{t('archives.sortSmallest')}</option>
               </select>
             </div>
             <div className="flex items-center border border-bambu-dark-tertiary rounded-lg overflow-hidden flex-shrink-0">
               <button
                 className={`p-2 ${viewMode === 'grid' ? 'bg-bambu-green text-white' : 'bg-bambu-dark text-bambu-gray hover:text-white'}`}
                 onClick={() => setViewMode('grid')}
-                title="Grid view"
+                title={t('archives.gridView')}
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 className={`p-2 ${viewMode === 'list' ? 'bg-bambu-green text-white' : 'bg-bambu-dark text-bambu-gray hover:text-white'}`}
                 onClick={() => setViewMode('list')}
-                title="List view"
+                title={t('archives.listView')}
               >
                 <List className="w-4 h-4" />
               </button>
               <button
                 className={`p-2 ${viewMode === 'calendar' ? 'bg-bambu-green text-white' : 'bg-bambu-dark text-bambu-gray hover:text-white'}`}
                 onClick={() => setViewMode('calendar')}
-                title="Calendar view"
+                title={t('archives.calendarView')}
               >
                 <CalendarDays className="w-4 h-4" />
               </button>
@@ -2870,12 +2872,12 @@ export function ArchivesPage() {
 
       {/* Archives */}
       {isLoading ? (
-        <div className="text-center py-12 text-bambu-gray">Loading archives...</div>
+        <div className="text-center py-12 text-bambu-gray">{t('archives.loadingArchives')}</div>
       ) : filteredArchives?.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
             <p className="text-bambu-gray">
-              {search ? 'No archives match your search' : 'No archives yet'}
+              {search ? t('archives.noArchivesSearch') : t('archives.noArchivesYet')}
             </p>
             <p className="text-sm text-bambu-gray mt-2">
               Archives are created automatically when prints complete
@@ -2908,6 +2910,7 @@ export function ArchivesPage() {
               projects={projects}
               isHighlighted={archive.id === highlightedArchiveId}
               timeFormat={timeFormat}
+              t={t}
             />
           ))}
         </div>
@@ -2934,6 +2937,7 @@ export function ArchivesPage() {
                 selectionMode={selectionMode}
                 projects={projects}
                 isHighlighted={archive.id === highlightedArchiveId}
+                t={t}
               />
             ))}
           </div>
@@ -2954,9 +2958,9 @@ export function ArchivesPage() {
       {/* Bulk Delete Confirmation */}
       {showBulkDeleteConfirm && (
         <ConfirmModal
-          title="Delete Archives"
-          message={`Are you sure you want to delete ${selectedIds.size} archive${selectedIds.size > 1 ? 's' : ''}? This action cannot be undone.`}
-          confirmText={`Delete ${selectedIds.size}`}
+          title={t('archives.modal.deleteArchives')}
+          message={t('archives.modal.deleteArchivesConfirm', { count: selectedIds.size })}
+          confirmText={t('archives.modal.deleteCount', { count: selectedIds.size })}
           variant="danger"
           onConfirm={() => {
             bulkDeleteMutation.mutate(Array.from(selectedIds));

@@ -2,9 +2,116 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
-## [0.1.7b] - Not released
+
+## [0.1.8b] - Not released
+
+### Added
+- **Windows Portable Launcher** (contributed by nmori):
+  - New `start_bambuddy.bat` for Windows users - double-click to run, no installation required
+  - Automatically downloads Python 3.13 and Node.js 22 on first run (portable, no system changes)
+  - Everything stored in `.portable\` folder for easy cleanup
+  - Commands: `start_bambuddy.bat` (launch), `start_bambuddy.bat update` (update deps), `start_bambuddy.bat reset` (clean start)
+  - Custom port via `set PORT=9000 & start_bambuddy.bat`
+  - Verifies all downloads with SHA256 checksums for security
+  - Supports both x64 and ARM64 Windows systems
+
+## [0.1.7] - 2026-02-03
+
+### Security
+- **Critical: Missing API Endpoint Authentication** (CVE-2026-25505, CVSS 9.8):
+  - Added authentication to 200+ API endpoints that were previously unprotected
+  - All route files now use `RequirePermissionIfAuthEnabled()` for permission checks
+  - Protected endpoints: archives, projects, settings, API keys, groups, cloud, notifications, maintenance, filaments, external links, smart plugs, discovery, firmware, camera, k-profiles, AMS history, pending uploads, updates, spoolman, system, print queue, printers
+  - Image-serving endpoints (thumbnails, timelapse, photos, camera streams) remain public as they require knowing the resource ID and are loaded via `<img>` tags which cannot send Authorization headers
+  - Backend integration tests added to verify endpoint authentication enforcement
 
 ### Enhancements
+- **TOTP Authenticator Support for Bambu Cloud** (Issue #182):
+  - Added support for TOTP-based two-factor authentication when connecting to Bambu Cloud
+  - Accounts with authenticator apps (Google Authenticator, Authy, etc.) now work correctly
+  - Proper detection of verification type: email code vs TOTP code
+  - Uses browser-like headers to bypass Cloudflare protection on TFA endpoint
+  - Frontend shows appropriate message for each verification type
+  - Added translations for TOTP UI in English, German, and Japanese
+- **Spoolman: Open in Spoolman Button** (Issue #210):
+  - FilamentHoverCard now shows "Open in Spoolman" button when spool is already linked in Spoolman
+  - Button links directly to the spool's page in Spoolman for quick editing
+  - "Link to Spoolman" button now only shows when spool is not yet linked
+  - Link button correctly disabled when no unlinked spools are available in Spoolman
+  - Toast notification shown on successful/failed spool linking
+  - Added `/api/v1/spoolman/spools/linked` endpoint returning map of linked spool tags to IDs
+- **Complete German Translations**:
+  - All UI strings now fully translated to German (1800+ translation keys)
+  - Pages translated: Settings, Archives, File Manager, Queue, Printers, Profiles, Projects, Stats, Maintenance, Camera, Groups, Users, Login, Setup, Stream Overlay
+  - Components translated: ConfirmModal, LinkSpoolModal, FilamentHoverCard, Layout
+  - Added locale parity test to ensure English and German stay in sync
+- **Virtual Printer Proxy Mode**:
+  - New "Proxy" mode allows remote printing over any network by relaying slicer traffic to a real printer
+  - Configure a target printer and Bambuddy acts as a TLS proxy between your slicer and the printer
+  - Supports both FTP (port 9990) and MQTT (port 8883) protocols with full TLS encryption
+  - Slicer connects to Bambuddy using the real printer's access code
+  - Real-time status display showing active FTP/MQTT connections
+  - Target printer selector with validation (must be configured in Bambuddy)
+  - Proxy mode bypasses the access code requirement (uses the real printer's credentials)
+  - Full i18n support for all proxy mode UI strings (English, German, Japanese)
+
+### Fixed
+- **Cannot Link Multiple HA Entities to Same Printer** (Issue #214):
+  - Fixed Home Assistant entities being limited to one per printer
+  - Both frontend and backend were blocking printers that already had any smart plug linked
+  - Now only Tasmota plugs are limited to one per printer (physical device constraint)
+  - Multiple HA entities (switches, scripts, lights, etc.) can be linked to the same printer
+  - Restored "Show on Printer Card" toggle for HA entities to control visibility on printer cards
+  - Fixed printer card only showing `script.*` entities; now shows all HA entities with toggle enabled
+  - HA entities now default to auto_on=False and auto_off=False (appropriate for automations)
+  - Printer cards now update immediately when HA entities are added/modified/deleted
+- **Monthly Comparison Calculation Off** (Issue #229):
+  - Fixed filament statistics not accounting for quantity multiplier
+  - Monthly comparison chart now correctly multiplies `filament_used_grams` by `quantity`
+  - Daily and weekly charts also now account for quantity
+  - Filament type breakdown includes quantity in calculations
+  - Backend stats endpoint (`/archives/stats`) and Prometheus metrics also fixed
+  - Prints count now shows total items (sum of quantities) instead of archive count
+- **Authentication Required for Downloads** (Issue #231):
+  - Fixed support bundle download returning 401 Unauthorized when auth is enabled
+  - Fixed archive export (CSV/XLSX) failing with authentication enabled
+  - Fixed statistics export failing with authentication enabled
+  - Fixed printer file ZIP download failing with authentication enabled
+  - Root cause: These endpoints used raw `fetch()` without Authorization header
+- **Queue Schedule Date Picker Ignores User Format Settings** (Issue #233):
+  - Replaced native datetime picker with custom date/time inputs respecting user settings
+  - Date input shows in user's format (DD/MM/YYYY for EU, MM/DD/YYYY for US, YYYY-MM-DD for ISO)
+  - Time input shows in user's format (24H or 12H with AM/PM)
+  - Calendar button opens native picker for convenience; selection is formatted to user's preference
+  - Placeholder text shows expected format (e.g., "DD/MM/YYYY" or "HH:MM AM/PM")
+  - Added date utilities: `formatDateInput`, `parseDateInput`, `getDatePlaceholder`
+  - Added time utilities: `formatTimeInput`, `parseTimeInput`, `getTimePlaceholder`
+- **500 Error on Archive Detail Page**:
+  - Fixed internal server error when viewing individual archive details
+  - Root cause: `project` relationship not eagerly loaded in `get_archive()` service method
+  - Async SQLAlchemy requires explicit eager loading; lazy loading is not supported
+
+## [0.1.6.2] - 2026-02-02
+
+> **Security Release**: This release addresses critical security vulnerabilities. Users running authentication-enabled instances should upgrade immediately.
+
+### Security
+- **Critical: Hardcoded JWT Secret Key** (GHSA-gc24-px2r-5qmf, CWE-321) - Fixed hardcoded JWT secret key that could allow attackers to forge authentication tokens:
+  - JWT secret now loaded from `JWT_SECRET_KEY` environment variable (recommended for production)
+  - Falls back to auto-generated `.jwt_secret` file in data directory with secure permissions (0600)
+  - Generates cryptographically secure 64-byte random secret if neither exists
+  - **Action Required**: Existing users will need to re-login after upgrading
+- **Critical: Missing API Authentication** (GHSA-gc24-px2r-5qmf, CWE-306) - Fixed 77+ API endpoints that lacked authentication checks:
+  - Added HTTP middleware enforcing authentication on ALL `/api/` routes when auth is enabled
+  - Only essential public endpoints are exempt (login, auth status, version check, WebSocket)
+  - All other API calls now require valid JWT token or API key
+
+### Enhancements
+- **Location Filter for Queue** (Issue #220):
+  - Filter queue jobs by printer location in the Queue page
+  - "Any {Model}" queue assignments can now specify a target location (e.g., "Any X1C in Workshop")
+  - Location filter dropdown shows all unique locations from printers and queue items
+  - Location is saved with queue items and displayed in the queue list
 - **Ownership-Based Permissions** (Issue #205):
   - Users can now only update/delete their own items unless they have elevated permissions
   - Update/delete permissions split into `*_own` and `*_all` variants:
@@ -51,11 +158,28 @@ All notable changes to Bambuddy will be documented in this file.
   - Removed ~2000 lines of legacy JSON-based backup/restore code
 
 ### Fixes
+- **File Manager permissions not enforced** (Issue #224) - Fixed backend not checking `library:read` permission for File Manager endpoints:
+  - Added `library:read` permission check to all list/view endpoints (files, folders, stats)
+  - Added `library:upload` permission check to upload and folder creation endpoints
+  - Added `queue:create` permission check to add-to-queue endpoint
+  - Added `printers:control` permission check to direct print endpoint
+  - Added ownership-based permission checks to file move operation
+  - Users without `library:read` permission can no longer view files in the File Manager
+  - Users can now only delete/update their own files unless they have `*_all` permissions
+- **JWT secret key not persistent across restarts** - Fixed JWT secret key generation to properly use data directory, ensuring tokens remain valid across container restarts
+- **Images/thumbnails returning 401 when auth enabled** - Fixed auth middleware to allow public access to image/media endpoints (thumbnails, photos, QR codes, timelapses, camera streams) since browser elements like `<img>` don't send Authorization headers
 - **Library thumbnails missing after restore** - Fixed library files using absolute paths that break after restore on different systems:
   - Library now stores relative paths in database for portability
   - Automatic migration converts existing absolute paths to relative on startup
   - Thumbnails and files now display correctly after restoring backups
 - **File uploads failing with authentication enabled** - Fixed all file upload functions (archives, photos, timelapses, library files, etc.) not sending authentication headers when auth is enabled
+- **External spool AMS mapping causing "Failed to get AMS mapping table"** (Issue #213) - Fixed external spool `ams_mapping2` slot_id handling that caused AMS mapping failures
+- **Filename matching for files with spaces** (Issue #218) - Fixed file detection when filenames contain spaces
+- **P2S FTP upload failure** (Issue #218) - Fixed FTP uploads to P2S printers by passing `skip_session_reuse` to ImplicitFTP_TLS
+- **Printer deletion freeze** (Issue #214) - Fixed UI freeze when deleting printers, and now allows multiple smart plugs per printer
+- **Stack trace exposure in error responses** (CodeQL Alert #68) - Fixed stack traces being exposed in API error responses in archives.py
+- **Printer serial numbers exposed in support bundle** (Issue #216) - Sanitized printer serial numbers in support bundle logs for privacy
+- **Missing sliced_for_model migration** (Issue #211) - Fixed database migration for `sliced_for_model` column that was missing in some upgrade paths
 
 ## [0.1.6-final] - 2026-01-31
 

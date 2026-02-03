@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { X, Printer, Loader2, Calendar, Pencil, AlertCircle, AlertTriangle } from 'lucide-react';
 import { api } from '../../api/client';
 import type { PrintQueueItemCreate, PrintQueueItemUpdate } from '../../api/client';
@@ -41,6 +42,7 @@ export function PrintModal({
   onClose,
   onSuccess,
 }: PrintModalProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -131,6 +133,14 @@ export function PrintModal({
   const [targetModel, setTargetModel] = useState<string | null>(() => {
     if (mode === 'edit-queue-item' && queueItem?.target_model) {
       return queueItem.target_model;
+    }
+    return null;
+  });
+
+  // Target location for model-based assignment (optional filter)
+  const [targetLocation, setTargetLocation] = useState<string | null>(() => {
+    if (mode === 'edit-queue-item' && queueItem?.target_location) {
+      return queueItem.target_location;
     }
     return null;
   });
@@ -369,6 +379,7 @@ export function PrintModal({
     const getQueueData = (printerId: number | null): PrintQueueItemCreate => ({
       printer_id: assignmentMode === 'printer' ? printerId : null,
       target_model: assignmentMode === 'model' ? targetModel : null,
+      target_location: assignmentMode === 'model' ? targetLocation : null,
       // Use library_file_id for library files, archive_id for archives
       archive_id: isLibraryFile ? undefined : archiveId,
       library_file_id: isLibraryFile ? libraryFileId : undefined,
@@ -397,6 +408,7 @@ export function PrintModal({
           const updateData: PrintQueueItemUpdate = {
             printer_id: null,
             target_model: targetModel,
+            target_location: targetLocation,
             require_previous_success: scheduleOptions.requirePreviousSuccess,
             auto_off_after: scheduleOptions.autoOffAfter,
             manual_start: scheduleOptions.scheduleType === 'manual',
@@ -445,6 +457,7 @@ export function PrintModal({
             const updateData: PrintQueueItemUpdate = {
               printer_id: printerId,
               target_model: null,
+              target_location: null,
               require_previous_success: scheduleOptions.requirePreviousSuccess,
               auto_off_after: scheduleOptions.autoOffAfter,
               manual_start: scheduleOptions.scheduleType === 'manual',
@@ -518,35 +531,35 @@ export function PrintModal({
 
     if (mode === 'reprint') {
       return {
-        title: isLibraryFile ? 'Print' : 'Re-print',
+        title: isLibraryFile ? t('queue.print') : t('queue.reprint'),
         icon: Printer,
-        submitText: printerCount > 1 ? `Print to ${printerCount} Printers` : 'Print',
+        submitText: printerCount > 1 ? t('queue.printToPrinters', { count: printerCount }) : t('queue.print'),
         submitIcon: Printer,
         loadingText: submitProgress.total > 1
-          ? `Sending ${submitProgress.current}/${submitProgress.total}...`
-          : 'Sending...',
+          ? t('queue.sendingProgress', { current: submitProgress.current, total: submitProgress.total })
+          : t('queue.sending'),
       };
     }
     if (mode === 'add-to-queue') {
       return {
-        title: 'Schedule Print',
+        title: t('queue.schedulePrint'),
         icon: Calendar,
-        submitText: printerCount > 1 ? `Queue to ${printerCount} Printers` : 'Add to Queue',
+        submitText: printerCount > 1 ? t('queue.queueToPrinters', { count: printerCount }) : t('queue.addToQueue'),
         submitIcon: Calendar,
         loadingText: submitProgress.total > 1
-          ? `Adding ${submitProgress.current}/${submitProgress.total}...`
-          : 'Adding...',
+          ? t('queue.addingProgress', { current: submitProgress.current, total: submitProgress.total })
+          : t('queue.adding'),
       };
     }
     // edit-queue-item mode
     return {
-      title: 'Edit Queue Item',
+      title: t('queue.editQueueItem'),
       icon: Pencil,
-      submitText: 'Save',
+      submitText: t('common.save'),
       submitIcon: Pencil,
       loadingText: submitProgress.total > 1
-        ? `Saving ${submitProgress.current}/${submitProgress.total}...`
-        : 'Saving...',
+        ? t('queue.savingProgress', { current: submitProgress.current, total: submitProgress.total })
+        : t('common.saving'),
     };
   };
 
@@ -626,6 +639,8 @@ export function PrintModal({
               onAssignmentModeChange={mode !== 'reprint' ? setAssignmentMode : undefined}
               targetModel={targetModel}
               onTargetModelChange={mode !== 'reprint' ? setTargetModel : undefined}
+              targetLocation={targetLocation}
+              onTargetLocationChange={mode !== 'reprint' ? setTargetLocation : undefined}
               slicedForModel={slicedForModel}
             />
 
@@ -673,7 +688,12 @@ export function PrintModal({
 
             {/* Schedule options - only for queue modes */}
             {mode !== 'reprint' && (
-              <ScheduleOptionsPanel options={scheduleOptions} onChange={setScheduleOptions} />
+              <ScheduleOptionsPanel
+                options={scheduleOptions}
+                onChange={setScheduleOptions}
+                dateFormat={settings?.date_format || 'system'}
+                timeFormat={settings?.time_format || 'system'}
+              />
             )}
 
             {/* Error message */}
