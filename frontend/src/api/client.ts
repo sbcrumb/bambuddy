@@ -1,3 +1,5 @@
+import type { ArchivePlatesResponse, LibraryFilePlatesResponse } from '../types/plates';
+
 const API_BASE = '/api/v1';
 
 // Auth token storage
@@ -2063,6 +2065,33 @@ export const api = {
     }>(`/printers/${printerId}/files?path=${encodeURIComponent(path)}`),
   getPrinterFileDownloadUrl: (printerId: number, path: string) =>
     `${API_BASE}/printers/${printerId}/files/download?path=${encodeURIComponent(path)}`,
+  getPrinterFileGcodeUrl: (printerId: number, path: string) =>
+    `${API_BASE}/printers/${printerId}/files/gcode?path=${encodeURIComponent(path)}`,
+  getPrinterFilePlates: (printerId: number, path: string) =>
+    request<{
+      printer_id: number;
+      path: string;
+      filename: string;
+      plates: Array<{
+        index: number;
+        name: string | null;
+        objects: string[];
+        has_thumbnail: boolean;
+        thumbnail_url: string | null;
+        print_time_seconds: number | null;
+        filament_used_grams: number | null;
+        filaments: Array<{
+          slot_id: number;
+          type: string;
+          color: string;
+          used_grams: number;
+          used_meters: number;
+        }>;
+      }>;
+      is_multi_plate: boolean;
+    }>(`/printers/${printerId}/files/plates?path=${encodeURIComponent(path)}`),
+  getPrinterFilePlateThumbnail: (printerId: number, plateIndex: number, path: string) =>
+    `${API_BASE}/printers/${printerId}/files/plate-thumbnail/${plateIndex}?path=${encodeURIComponent(path)}`,
   downloadPrinterFile: async (printerId: number, path: string): Promise<void> => {
     const headers: Record<string, string> = {};
     if (authToken) {
@@ -2557,27 +2586,7 @@ export const api = {
   getArchiveForSlicer: (id: number, filename: string) =>
     `${API_BASE}/archives/${id}/file/${encodeURIComponent(filename.endsWith('.3mf') ? filename : filename + '.3mf')}`,
   getArchivePlates: (archiveId: number) =>
-    request<{
-      archive_id: number;
-      filename: string;
-      plates: Array<{
-        index: number;
-        name: string | null;
-        objects: string[];
-        has_thumbnail: boolean;
-        thumbnail_url: string | null;
-        print_time_seconds: number | null;
-        filament_used_grams: number | null;
-        filaments: Array<{
-          slot_id: number;
-          type: string;
-          color: string;
-          used_grams: number;
-          used_meters: number;
-        }>;
-      }>;
-      is_multi_plate: boolean;
-    }>(`/archives/${archiveId}/plates`),
+    request<ArchivePlatesResponse>(`/archives/${archiveId}/plates`),
   getArchiveFilamentRequirements: (archiveId: number, plateId?: number) =>
     request<{
       archive_id: number;
@@ -3565,27 +3574,7 @@ export const api = {
       }
     ),
   getLibraryFilePlates: (fileId: number) =>
-    request<{
-      file_id: number;
-      filename: string;
-      plates: Array<{
-        index: number;
-        name: string | null;
-        objects: string[];
-        has_thumbnail: boolean;
-        thumbnail_url: string | null;
-        print_time_seconds: number | null;
-        filament_used_grams: number | null;
-        filaments: Array<{
-          slot_id: number;
-          type: string;
-          color: string;
-          used_grams: number;
-          used_meters: number;
-        }>;
-      }>;
-      is_multi_plate: boolean;
-    }>(`/library/files/${fileId}/plates`),
+    request<LibraryFilePlatesResponse>(`/library/files/${fileId}/plates`),
   getLibraryFileFilamentRequirements: (fileId: number, plateId?: number) =>
     request<{
       file_id: number;
