@@ -15,6 +15,9 @@ All notable changes to Bambuddy will be documented in this file.
   - Queue now shows "Paused" when the printer is paused instead of "Printing"
   - Fetches real-time printer state for actively printing queue items
   - Added translations for paused status in English, German, and Japanese
+- **Queue Scheduled Time Displayed in Wrong Timezone** (Issue #233):
+  - Fixed scheduled time being displayed in UTC instead of local timezone when editing queue items
+  - The datetime picker now correctly shows and saves times in the user's local timezone
 
 ### Added
 - **Windows Portable Launcher** (contributed by nmori):
