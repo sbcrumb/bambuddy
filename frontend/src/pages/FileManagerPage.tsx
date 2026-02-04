@@ -962,6 +962,12 @@ function FileCard({ file, isSelected, isMobile, onSelect, onDelete, onDownload, 
             </span>
           )}
         </div>
+        {file.sliced_for_model && (
+          <div className="mt-1 text-xs text-purple-400 flex items-center gap-1">
+            <Printer className="w-3 h-3" />
+            {file.sliced_for_model}
+          </div>
+        )}
         {file.print_count > 0 && (
           <div className="mt-1 text-xs text-bambu-green">
             {t('fileManager.printedCount', { count: file.print_count })}
