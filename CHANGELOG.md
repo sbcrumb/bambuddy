@@ -2,6 +2,7 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
+## [0.1.9] - Unrelased
 
 ## [0.1.8] - 2026-02-06
 
