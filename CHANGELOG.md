@@ -11,6 +11,7 @@ All notable changes to Bambuddy will be documented in this file.
   - Changed all FTP exception handlers from `except (OSError, ftplib.error_reply)` to `except (OSError, ftplib.Error)` to catch all FTP error types
 - **HTTP 500 on Reprint and Print Endpoints** — Fixed 500 errors on `/api/v1/archives/{id}/reprint` and `/api/v1/library/files/{id}/print` caused by the FTP failure above
 - **Exception Handling Reverted** — Reverted overly-narrow exception handling introduced in 0.1.8 that could cause uncaught errors in archive parsing, HTTP clients, 3MF/ZIP processing, Home Assistant, and firmware checks
+- **HTTP 500 on Printer Cover Image** — Fixed 500 error on `/api/v1/printers/{id}/cover` when FTP download returned 0 bytes but reported success; now retries and falls back to 404
 - **4-Segment Version Support** — Version parser now supports patch releases like `0.1.8.1` for hotfixes without incrementing the minor version
 
 ## [0.1.8] - 2026-02-06

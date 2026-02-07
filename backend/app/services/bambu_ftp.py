@@ -269,6 +269,11 @@ class BambuFTPClient:
                 f.flush()
                 os.fsync(f.fileno())
             file_size = local_path.stat().st_size if local_path.exists() else 0
+            if file_size == 0:
+                logger.warning("FTP download returned 0 bytes for %s", remote_path)
+                if local_path.exists():
+                    local_path.unlink()
+                return False
             logger.info("Successfully downloaded %s to %s (%s bytes)", remote_path, local_path, file_size)
             return True
         except (OSError, ftplib.Error) as e:
