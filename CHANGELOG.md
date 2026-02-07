@@ -6,6 +6,7 @@ All notable changes to Bambuddy will be documented in this file.
 
 ### Fixed
 - **Filament Usage Charts Inflated by Quantity Multiplier** ([#229](https://github.com/maziggy/bambuddy/issues/229)) — Daily, weekly, and filament-type charts were multiplying `filament_used_grams` by print quantity, even though the value already represents the total for the entire job. A 26-object print using 126g was counted as 3,276g. Removed the erroneous multiplier from three aggregations in `FilamentTrends.tsx`.
+- **Energy Cost Shows 0.00 in "Total Consumption" Mode** ([#284](https://github.com/maziggy/bambuddy/issues/284)) — Statistics Quick Stats showed 0.00 energy cost when Energy Display Mode was set to "Total Consumption" with Home Assistant smart plugs. The `homeassistant_service` was not configured with HA URL/token before querying plug energy data, causing it to silently return nothing.
 
 ### Testing
 - **Mock FTPS Server & Comprehensive FTP Test Suite** — Added 67 automated test cases against a real implicit FTPS mock server, covering every known FTP failure mode from 0.1.8+:
