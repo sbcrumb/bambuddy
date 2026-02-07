@@ -2,6 +2,8 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
+## [0.1.9b] - Not released
+
 ## [0.1.8.1] - 2026-02-07
 
 ### Fixed
