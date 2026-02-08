@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { HelpCircle, X } from 'lucide-react';
+import { X, Mail } from 'lucide-react';
+import { api } from '../api/client';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -16,6 +17,13 @@ export function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+
+  // Check if advanced auth is enabled
+  const { data: advancedAuthStatus } = useQuery({
+    queryKey: ['advancedAuthStatus'],
+    queryFn: () => api.getAdvancedAuthStatus(),
+  });
 
   const loginMutation = useMutation({
     mutationFn: () => login(username, password),
@@ -28,6 +36,18 @@ export function LoginPage() {
     },
   });
 
+  const forgotPasswordMutation = useMutation({
+    mutationFn: (email: string) => api.forgotPassword({ email }),
+    onSuccess: (data) => {
+      showToast(data.message, 'success');
+      setShowForgotPassword(false);
+      setForgotEmail('');
+    },
+    onError: (error: Error) => {
+      showToast(error.message, 'error');
+    },
+  });
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!username || !password) {
@@ -35,6 +55,15 @@ export function LoginPage() {
       return;
     }
     loginMutation.mutate();
+  };
+
+  const handleForgotPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail) {
+      showToast('Please enter your email address', 'error');
+      return;
+    }
+    forgotPasswordMutation.mutate(forgotEmail);
   };
 
   return (
@@ -60,7 +89,9 @@ export function LoginPage() {
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-white mb-2">
-                {t('login.username')}
+                {advancedAuthStatus?.advanced_auth_enabled 
+                  ? t('login.usernameOrEmail') || 'Username or Email'
+                  : t('login.username')}
               </label>
               <input
                 id="username"
@@ -69,7 +100,9 @@ export function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="block w-full px-4 py-3 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg text-white placeholder-bambu-gray focus:outline-none focus:ring-2 focus:ring-bambu-green/50 focus:border-bambu-green transition-colors"
-                placeholder={t('login.usernamePlaceholder')}
+                placeholder={advancedAuthStatus?.advanced_auth_enabled 
+                  ? t('login.usernameOrEmailPlaceholder') || 'Enter your username or email'
+                  : t('login.usernamePlaceholder')}
                 autoComplete="username"
               />
             </div>
@@ -101,22 +134,24 @@ export function LoginPage() {
             </button>
           </div>
 
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => setShowForgotPassword(true)}
-              className="text-sm text-bambu-gray hover:text-bambu-green transition-colors"
-            >
-              {t('login.forgotPassword')}
-            </button>
-          </div>
+          {advancedAuthStatus?.advanced_auth_enabled && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-bambu-gray hover:text-bambu-green transition-colors"
+              >
+                {t('login.forgotPassword')}
+              </button>
+            </div>
+          )}
         </form>
       </div>
 
       {/* Forgot Password Modal */}
       {showForgotPassword && (
         <div
-          className="fixed inset-0 bg-black flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
           onClick={() => setShowForgotPassword(false)}
         >
           <div
@@ -125,39 +160,87 @@ export function LoginPage() {
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-bambu-green" />
+                <Mail className="w-5 h-5 text-bambu-green" />
                 <h2 className="text-lg font-semibold text-white">{t('login.forgotPasswordTitle')}</h2>
               </div>
               <button
-                onClick={() => setShowForgotPassword(false)}
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setForgotEmail('');
+                }}
                 className="p-1 rounded-lg hover:bg-bambu-dark-tertiary text-bambu-gray hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4">
-              <p className="text-bambu-gray">
-                {t('login.forgotPasswordMessage')}
-              </p>
+            {advancedAuthStatus?.advanced_auth_enabled ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <p className="text-bambu-gray text-sm">
+                  {t('login.forgotPasswordEmailMessage') || 'Enter your email address and we\'ll send you a new password.'}
+                </p>
 
-              <div className="bg-bambu-dark rounded-lg p-4 space-y-2">
-                <p className="text-sm text-white font-medium">{t('login.howToReset')}</p>
-                <ol className="text-sm text-bambu-gray space-y-1 list-decimal list-inside">
-                  <li>{t('login.resetStep1')}</li>
-                  <li>{t('login.resetStep2')}</li>
-                  <li>{t('login.resetStep3')}</li>
-                  <li>{t('login.resetStep4')}</li>
-                </ol>
+                <div>
+                  <label htmlFor="forgot-email" className="block text-sm font-medium text-white mb-2">
+                    {t('login.emailAddress') || 'Email Address'}
+                  </label>
+                  <input
+                    id="forgot-email"
+                    type="email"
+                    required
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    className="block w-full px-4 py-3 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg text-white placeholder-bambu-gray focus:outline-none focus:ring-2 focus:ring-bambu-green/50 focus:border-bambu-green transition-colors"
+                    placeholder={t('login.emailPlaceholder') || 'your.email@example.com'}
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setForgotEmail('');
+                    }}
+                    className="flex-1 py-2 px-4 bg-bambu-dark-tertiary hover:bg-bambu-dark text-white rounded-lg transition-colors"
+                  >
+                    {t('login.cancel') || 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={forgotPasswordMutation.isPending}
+                    className="flex-1 py-2 px-4 bg-bambu-green hover:bg-bambu-green-light text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {forgotPasswordMutation.isPending 
+                      ? (t('login.sending') || 'Sending...') 
+                      : (t('login.sendResetEmail') || 'Send Reset Email')}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <p className="text-bambu-gray">
+                  {t('login.forgotPasswordMessage')}
+                </p>
+
+                <div className="bg-bambu-dark rounded-lg p-4 space-y-2">
+                  <p className="text-sm text-white font-medium">{t('login.howToReset')}</p>
+                  <ol className="text-sm text-bambu-gray space-y-1 list-decimal list-inside">
+                    <li>{t('login.resetStep1')}</li>
+                    <li>{t('login.resetStep2')}</li>
+                    <li>{t('login.resetStep3')}</li>
+                    <li>{t('login.resetStep4')}</li>
+                  </ol>
+                </div>
+
+                <button
+                  onClick={() => setShowForgotPassword(false)}
+                  className="w-full py-2 px-4 bg-bambu-dark-tertiary hover:bg-bambu-dark text-white rounded-lg transition-colors"
+                >
+                  {t('login.gotIt')}
+                </button>
               </div>
-
-              <button
-                onClick={() => setShowForgotPassword(false)}
-                className="w-full py-2 px-4 bg-bambu-dark-tertiary hover:bg-bambu-dark text-white rounded-lg transition-colors"
-              >
-                {t('login.gotIt')}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

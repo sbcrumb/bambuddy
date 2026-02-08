@@ -1843,6 +1843,7 @@ export interface LoginResponse {
 export interface UserResponse {
   id: number;
   username: string;
+  email?: string;
   role: string;  // Deprecated, kept for backward compatibility
   is_active: boolean;
   is_admin: boolean;  // Computed from role and group membership
@@ -1853,7 +1854,8 @@ export interface UserResponse {
 
 export interface UserCreate {
   username: string;
-  password: string;
+  password?: string;  // Optional when advanced auth is enabled
+  email?: string;
   role: string;
   group_ids?: number[];
 }
@@ -1861,6 +1863,7 @@ export interface UserCreate {
 export interface UserUpdate {
   username?: string;
   password?: string;
+  email?: string;
   role?: string;
   is_active?: boolean;
   group_ids?: number[];
@@ -1870,6 +1873,52 @@ export interface SetupRequest {
   auth_enabled: boolean;
   admin_username?: string;
   admin_password?: string;
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface ResetPasswordRequest {
+  user_id: number;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+export interface SMTPSettings {
+  smtp_host: string;
+  smtp_port: number;
+  smtp_username: string;
+  smtp_password?: string;
+  smtp_use_tls: boolean;
+  smtp_from_email: string;
+  smtp_from_name: string;
+}
+
+export interface TestSMTPRequest {
+  smtp_host: string;
+  smtp_port: number;
+  smtp_username: string;
+  smtp_password: string;
+  smtp_use_tls: boolean;
+  smtp_from_email: string;
+  test_recipient: string;
+}
+
+export interface TestSMTPResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface AdvancedAuthStatus {
+  advanced_auth_enabled: boolean;
+  smtp_configured: boolean;
 }
 
 export interface SetupResponse {
@@ -1904,6 +1953,38 @@ export const api = {
   disableAuth: () =>
     request<{ message: string; auth_enabled: boolean }>('/auth/disable', {
       method: 'POST',
+    }),
+  
+  // Advanced Authentication
+  testSMTP: (data: TestSMTPRequest) =>
+    request<TestSMTPResponse>('/auth/smtp/test', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  getSMTPSettings: () => request<SMTPSettings | null>('/auth/smtp'),
+  saveSMTPSettings: (data: SMTPSettings) =>
+    request<{ message: string }>('/auth/smtp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  enableAdvancedAuth: () =>
+    request<{ message: string; advanced_auth_enabled: boolean }>('/auth/advanced-auth/enable', {
+      method: 'POST',
+    }),
+  disableAdvancedAuth: () =>
+    request<{ message: string; advanced_auth_enabled: boolean }>('/auth/advanced-auth/disable', {
+      method: 'POST',
+    }),
+  getAdvancedAuthStatus: () => request<AdvancedAuthStatus>('/auth/advanced-auth/status'),
+  forgotPassword: (data: ForgotPasswordRequest) =>
+    request<ForgotPasswordResponse>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  resetUserPassword: (data: ResetPasswordRequest) =>
+    request<ResetPasswordResponse>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 
   // Users
