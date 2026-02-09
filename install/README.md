@@ -8,14 +8,14 @@ Interactive installation scripts for BamBuddy with support for both native and D
 
 **Linux/macOS:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/install/docker-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/install/docker-install.sh -o docker-install.sh && chmod +x docker-install.sh && ./docker-install.sh
 ```
 
 ### Native Installation
 
 **Linux/macOS:**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/install/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/install/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 
 ---

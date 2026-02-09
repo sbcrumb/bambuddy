@@ -4,7 +4,7 @@
 # Supports: Debian/Ubuntu, RHEL/Fedora/CentOS, Arch Linux, macOS
 #
 # Usage:
-#   Interactive:  curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/install/install.sh | bash
+#   Interactive:  curl -fsSL https://raw.githubusercontent.com/maziggy/bambuddy/main/install/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 #   Unattended:   ./install.sh --path /opt/bambuddy --port 8000 --yes
 #
 # Options:
