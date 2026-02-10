@@ -1748,11 +1748,11 @@ class BambuMQTTClient:
             nozzle_data = device.get("nozzle", {})
             nozzle_info = nozzle_data.get("info", [])
             if isinstance(nozzle_info, list):
-                # H2C tool-changer: >2 entries means nozzle rack
-                # nozzle_info contains L/R nozzle heads (id 0,1) AND rack slots.
-                # Include ALL entries so mounted nozzles (on hotend) appear in the rack
-                # display with their full data (wear, max_temp, serial, etc.).
-                if len(nozzle_info) > 2:
+                # H2 series: nozzle_info contains extended nozzle data (wear, serial,
+                # max_temp, etc.) for all nozzles: L/R hotend (IDs 0,1) and rack slots
+                # (IDs 16-21 on H2C). Store ALL entries so the frontend can use them
+                # for hover cards on both the L/R indicator and the nozzle rack card.
+                if nozzle_info:
                     self.state.nozzle_rack = sorted(
                         [
                             {

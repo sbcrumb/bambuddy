@@ -456,9 +456,11 @@ function nozzleFlowName(type: string, t: (key: string) => string): string {
 }
 
 // Per-slot hover card for nozzle rack
-function NozzleSlotHoverCard({ slot, index, children }: {
+// activeStatus: when true, show "Active" instead of "Mounted"/"Docked" (for hotend nozzles)
+function NozzleSlotHoverCard({ slot, index, activeStatus, children }: {
   slot: import('../api/client').NozzleRackSlot;
   index: number;
+  activeStatus?: boolean;
   children: React.ReactNode;
 }) {
   const { t } = useTranslation();
@@ -534,14 +536,14 @@ function NozzleSlotHoverCard({ slot, index, children }: {
               <div className="p-2.5 space-y-1.5">
                 {/* Diameter */}
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">Diameter</span>
+                  <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">{t('printers.nozzleDiameter')}</span>
                   <span className="text-xs text-white font-semibold">{slot.nozzle_diameter} mm</span>
                 </div>
 
                 {/* Type */}
                 {typeFull && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">Type</span>
+                    <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">{t('printers.nozzleType')}</span>
                     <span className="text-xs text-white font-semibold truncate max-w-[100px]">{typeFull}</span>
                   </div>
                 )}
@@ -556,13 +558,13 @@ function NozzleSlotHoverCard({ slot, index, children }: {
 
                 {/* Status badge */}
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">Status</span>
+                  <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">{t('printers.nozzleStatus')}</span>
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    isMounted
+                    activeStatus || isMounted
                       ? 'bg-green-900/50 text-green-400'
                       : 'bg-bambu-dark-tertiary text-bambu-gray'
                   }`}>
-                    {isMounted ? t('printers.nozzleMounted') : t('printers.nozzleDocked')}
+                    {activeStatus ? t('printers.nozzleActive') : isMounted ? t('printers.nozzleMounted') : t('printers.nozzleDocked')}
                   </span>
                 </div>
 
@@ -593,7 +595,7 @@ function NozzleSlotHoverCard({ slot, index, children }: {
                 {/* Filament: material type + color swatch (hide if no color) */}
                 {(filamentCss || slot.filament_type) && (
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">Filament</span>
+                    <span className="text-[10px] uppercase tracking-wider text-bambu-gray font-medium">{t('printers.nozzleFilament')}</span>
                     <div className="flex items-center gap-1">
                       {filamentCss && (
                         <div className="w-3 h-3 rounded-sm border border-white/20" style={{ backgroundColor: filamentCss }} />
@@ -623,35 +625,192 @@ function NozzleSlotHoverCard({ slot, index, children }: {
   );
 }
 
+// Dual-nozzle hover card showing L and R nozzle details side by side
+function DualNozzleHoverCard({ leftSlot, rightSlot, activeNozzle, children }: {
+  leftSlot?: import('../api/client').NozzleRackSlot;
+  rightSlot?: import('../api/client').NozzleRackSlot;
+  activeNozzle: 'L' | 'R';
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const [isVisible, setIsVisible] = useState(false);
+  const [position, setPosition] = useState<'top' | 'bottom'>('top');
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (isVisible && triggerRef.current && cardRef.current) {
+      const triggerRect = triggerRef.current.getBoundingClientRect();
+      const cardHeight = cardRef.current.offsetHeight;
+      const headerHeight = 56;
+      const spaceAbove = triggerRect.top - headerHeight;
+      const spaceBelow = window.innerHeight - triggerRect.bottom;
+      if (spaceAbove < cardHeight + 12 && spaceBelow > spaceAbove) {
+        setPosition('bottom');
+      } else {
+        setPosition('top');
+      }
+    }
+  }, [isVisible]);
+
+  const handleMouseEnter = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setIsVisible(true), 80);
+  };
+
+  const handleMouseLeave = () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => setIsVisible(false), 100);
+  };
+
+  useEffect(() => {
+    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
+  }, []);
+
+  if (!leftSlot && !rightSlot) return <>{children}</>;
+
+  const renderColumn = (slot: import('../api/client').NozzleRackSlot, side: 'L' | 'R') => {
+    const isActive = activeNozzle === side;
+    const typeFull = nozzleTypeName(slot.nozzle_type, t);
+    const flowFull = nozzleFlowName(slot.nozzle_type, t);
+
+    return (
+      <div className="flex-1 space-y-1.5">
+        <div className={`text-[10px] font-bold pb-1 border-b border-bambu-dark-tertiary/50 ${isActive ? 'text-amber-400' : 'text-bambu-gray'}`}>
+          {side === 'L' ? t('common.left') : t('common.right')}
+        </div>
+        {slot.nozzle_diameter && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-bambu-gray">{t('printers.nozzleDiameter')}</span>
+            <span className="text-xs text-white font-semibold">{slot.nozzle_diameter} mm</span>
+          </div>
+        )}
+        {typeFull && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-bambu-gray">{t('printers.nozzleType')}</span>
+            <span className="text-[10px] text-white font-semibold">{typeFull}</span>
+          </div>
+        )}
+        {flowFull && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-bambu-gray">{t('printers.nozzleFlow')}</span>
+            <span className="text-[10px] text-white font-semibold">{flowFull}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-bambu-gray">{t('printers.nozzleStatus')}</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+            isActive
+              ? 'bg-green-900/50 text-green-400'
+              : 'bg-bambu-dark-tertiary text-bambu-gray'
+          }`}>
+            {isActive ? t('printers.nozzleActive') : t('printers.nozzleIdle')}
+          </span>
+        </div>
+        {slot.wear != null && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-bambu-gray">{t('printers.nozzleWear')}</span>
+            <span className="text-xs text-white font-semibold">{slot.wear}%</span>
+          </div>
+        )}
+        {slot.max_temp > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-bambu-gray">{t('printers.nozzleMaxTemp')}</span>
+            <span className="text-xs text-white font-semibold">{slot.max_temp}°C</span>
+          </div>
+        )}
+        {slot.serial_number && (
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-bambu-gray">{t('printers.nozzleSerial')}</span>
+            <span className="text-[10px] text-white font-mono">{slot.serial_number}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div
+      ref={triggerRef}
+      className="relative flex-1"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {children}
+
+      {isVisible && (
+        <div
+          ref={cardRef}
+          className={`
+            absolute left-1/2 -translate-x-1/2 z-50
+            ${position === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'}
+            animate-in fade-in-0 zoom-in-95 duration-150
+          `}
+          style={{ maxWidth: 'calc(100vw - 24px)' }}
+        >
+          <div className="w-96 bg-bambu-dark-secondary border border-bambu-dark-tertiary rounded-lg shadow-xl overflow-hidden backdrop-blur-sm">
+            <div className="p-2.5 flex gap-3">
+              {leftSlot && renderColumn(leftSlot, 'L')}
+              {leftSlot && rightSlot && <div className="w-px bg-bambu-dark-tertiary/50" />}
+              {rightSlot && renderColumn(rightSlot, 'R')}
+            </div>
+          </div>
+
+          {/* Arrow pointer */}
+          <div
+            className={`
+              absolute left-1/2 -translate-x-1/2 w-0 h-0
+              border-l-[6px] border-l-transparent
+              border-r-[6px] border-r-transparent
+              ${position === 'top'
+                ? 'top-full border-t-[6px] border-t-bambu-dark-tertiary'
+                : 'bottom-full border-b-[6px] border-b-bambu-dark-tertiary'}
+            `}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // H2C Nozzle Rack Card — compact single row showing 6-position tool-changer dock
 function NozzleRackCard({ slots }: { slots: import('../api/client').NozzleRackSlot[] }) {
   const { t } = useTranslation();
-  // Backend sends all nozzle_info entries (hotend + rack).
-  // Filter to non-empty nozzles — these are the actual nozzles in the system.
-  const allNozzles = slots.filter(s => s.nozzle_diameter || s.nozzle_type);
+  // Rack nozzles only (IDs >= 2) — excludes L/R hotend nozzles (IDs 0, 1)
+  const rackNozzles = slots.filter(s => s.id >= 2);
+  // Always show 6 rack positions — pad with empty placeholders for unoccupied slots
+  const RACK_SIZE = 6;
+  const rackSlots: (import('../api/client').NozzleRackSlot)[] = Array.from(
+    { length: RACK_SIZE },
+    (_, i) => rackNozzles[i] ?? {
+      id: -(i + 1), nozzle_type: '', nozzle_diameter: '', wear: null, stat: null,
+      max_temp: 0, serial_number: '', filament_color: '', filament_id: '', filament_type: '',
+    },
+  );
 
   return (
     <div className="text-center px-2.5 py-1.5 bg-bambu-dark rounded-lg flex-[2] flex flex-col justify-center">
       <p className="text-[9px] text-bambu-gray mb-1">{t('printers.nozzleRack')}</p>
       <div className="flex gap-[3px] justify-center">
-        {allNozzles.map((slot, i) => {
-          const isMounted = slot.stat === 1;
-          const filamentBg = parseFilamentColor(slot.filament_color);
+        {rackSlots.map((slot, i) => {
+          const isEmpty = !slot.nozzle_diameter && !slot.nozzle_type;
+          const filamentBg = !isEmpty ? parseFilamentColor(slot.filament_color) : null;
 
           return (
-            <NozzleSlotHoverCard key={slot.id ?? i} slot={slot} index={i}>
+            <NozzleSlotHoverCard key={slot.id >= 0 ? slot.id : `empty-${i}`} slot={slot} index={i}>
               <div
                 className={`w-7 h-7 rounded flex items-center justify-center cursor-default transition-colors border-b-2 ${
-                  isMounted
-                    ? 'bg-green-950/35 border-green-400'
+                  isEmpty
+                    ? 'bg-bambu-dark-tertiary/20 border-bambu-dark-tertiary/20'
                     : 'bg-bambu-dark-tertiary/40 border-bambu-dark-tertiary/40'
                 }`}
                 style={filamentBg ? { backgroundColor: filamentBg } : undefined}
               >
-                <span className={`text-[10px] font-semibold ${isMounted ? 'text-green-400' : 'text-white'}`}
+                <span className={`text-[10px] font-semibold ${isEmpty ? 'text-bambu-gray/30' : 'text-white'}`}
                       style={filamentBg ? { textShadow: '0 1px 3px rgba(0,0,0,0.9)' } : undefined}
                 >
-                  {slot.nozzle_diameter || '?'}
+                  {isEmpty ? '—' : (slot.nozzle_diameter || '?')}
                 </span>
               </div>
             </NozzleSlotHoverCard>
@@ -2223,6 +2382,9 @@ function PrinterCard({
               const isDualNozzle = printer.nozzle_count === 2 || status.temperatures.nozzle_2 !== undefined;
               // active_extruder: 0=right, 1=left
               const activeNozzle = status.active_extruder === 1 ? 'L' : 'R';
+              // Extended nozzle data from nozzle_rack (H2 series: wear, serial, max_temp, etc.)
+              const leftNozzleSlot = status.nozzle_rack?.find(s => s.id === 0);
+              const rightNozzleSlot = status.nozzle_rack?.find(s => s.id === 1);
 
               return (
                 <div className="flex items-stretch gap-1.5">
@@ -2236,6 +2398,15 @@ function PrinterCard({
                           {Math.round(status.temperatures.nozzle || 0)}° / {Math.round(status.temperatures.nozzle_2 || 0)}°
                         </p>
                       </>
+                    ) : leftNozzleSlot ? (
+                      <NozzleSlotHoverCard slot={leftNozzleSlot} index={0} activeStatus>
+                        <div className="cursor-default">
+                          <p className="text-[9px] text-bambu-gray">{t('printers.temperatures.nozzle')}</p>
+                          <p className="text-[11px] text-white">
+                            {Math.round(status.temperatures.nozzle || 0)}°C
+                          </p>
+                        </div>
+                      </NozzleSlotHoverCard>
                     ) : (
                       <>
                         <p className="text-[9px] text-bambu-gray">{t('printers.temperatures.nozzle')}</p>
@@ -2263,14 +2434,23 @@ function PrinterCard({
                   )}
                   {/* Active nozzle indicator for dual-nozzle printers */}
                   {isDualNozzle && (
-                    <div className="text-center px-2 py-1.5 bg-bambu-dark rounded-lg flex flex-col justify-center items-center" title={t('printers.activeNozzle', { nozzle: activeNozzle === 'L' ? t('common.left') : t('common.right') })}>
-                      <p className={`text-[11px] font-bold ${activeNozzle === 'L' ? 'text-amber-400' : 'text-gray-500'}`}>L</p>
-                      <p className="text-[9px] text-bambu-gray">{t('printers.temperatures.nozzle')}</p>
-                      <p className={`text-[11px] font-bold ${activeNozzle === 'R' ? 'text-amber-400' : 'text-gray-500'}`}>R</p>
-                    </div>
+                    <DualNozzleHoverCard leftSlot={leftNozzleSlot} rightSlot={rightNozzleSlot} activeNozzle={activeNozzle}>
+                      <div className="text-center px-3 py-1.5 bg-bambu-dark rounded-lg h-full flex flex-col justify-center items-center cursor-default" title={t('printers.activeNozzle', { nozzle: activeNozzle === 'L' ? t('common.left') : t('common.right') })}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[11px] font-bold ${activeNozzle === 'L' ? 'text-amber-400' : 'text-gray-500'}`}>
+                            L{leftNozzleSlot?.nozzle_diameter ? ` ${leftNozzleSlot.nozzle_diameter}` : ''}
+                          </span>
+                          <span className="text-[9px] text-bambu-gray/40">·</span>
+                          <span className={`text-[11px] font-bold ${activeNozzle === 'R' ? 'text-amber-400' : 'text-gray-500'}`}>
+                            R{rightNozzleSlot?.nozzle_diameter ? ` ${rightNozzleSlot.nozzle_diameter}` : ''}
+                          </span>
+                        </div>
+                        <p className="text-[9px] text-bambu-gray">{t('printers.temperatures.nozzle')}</p>
+                      </div>
+                    </DualNozzleHoverCard>
                   )}
-                  {/* H2C nozzle rack (tool-changer dock) */}
-                  {status.nozzle_rack && status.nozzle_rack.length > 0 && (
+                  {/* H2C nozzle rack (tool-changer dock) — only show when rack nozzles exist (IDs >= 2) */}
+                  {status.nozzle_rack && status.nozzle_rack.some(s => s.id >= 2) && (
                     <NozzleRackCard slots={status.nozzle_rack} />
                   )}
                 </div>

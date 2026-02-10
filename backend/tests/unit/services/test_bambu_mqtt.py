@@ -603,3 +603,258 @@ class TestAMSDataMerging:
         # Verify other slots are preserved
         assert ams_data[0]["tray"][0]["tray_type"] == "PLA", "A1 should still have PLA"
         assert ams_data[1]["tray"][0]["tray_type"] == "PLA", "B1 should still have PLA"
+
+
+class TestNozzleRackData:
+    """Tests for nozzle rack data parsing from H2 series device.nozzle.info."""
+
+    @pytest.fixture
+    def mqtt_client(self):
+        """Create a BambuMQTTClient instance for testing."""
+        from backend.app.services.bambu_mqtt import BambuMQTTClient
+
+        client = BambuMQTTClient(
+            ip_address="192.168.1.100",
+            serial_number="TEST123",
+            access_code="12345678",
+        )
+        return client
+
+    def test_h2c_nozzle_rack_populated_with_8_entries(self, mqtt_client):
+        """H2C provides 8 nozzle entries: IDs 0,1 (L/R hotend) + 16-21 (rack)."""
+        payload = {
+            "print": {
+                "device": {
+                    "nozzle": {
+                        "info": [
+                            {
+                                "id": 0,
+                                "type": "HS",
+                                "diameter": "0.4",
+                                "wear": 5,
+                                "stat": 1,
+                                "max_temp": 300,
+                                "serial_number": "SN-L",
+                            },
+                            {
+                                "id": 1,
+                                "type": "HS",
+                                "diameter": "0.4",
+                                "wear": 3,
+                                "stat": 0,
+                                "max_temp": 300,
+                                "serial_number": "SN-R",
+                            },
+                            {
+                                "id": 16,
+                                "type": "HS",
+                                "diameter": "0.4",
+                                "wear": 10,
+                                "stat": 0,
+                                "max_temp": 300,
+                                "serial_number": "SN-16",
+                            },
+                            {
+                                "id": 17,
+                                "type": "HH01",
+                                "diameter": "0.6",
+                                "wear": 0,
+                                "stat": 0,
+                                "max_temp": 300,
+                                "serial_number": "SN-17",
+                            },
+                            {
+                                "id": 18,
+                                "type": "HS",
+                                "diameter": "0.4",
+                                "wear": 2,
+                                "stat": 0,
+                                "max_temp": 300,
+                                "serial_number": "SN-18",
+                            },
+                            {
+                                "id": 19,
+                                "type": "",
+                                "diameter": "",
+                                "wear": None,
+                                "stat": None,
+                                "max_temp": 0,
+                                "serial_number": "",
+                            },
+                            {
+                                "id": 20,
+                                "type": "",
+                                "diameter": "",
+                                "wear": None,
+                                "stat": None,
+                                "max_temp": 0,
+                                "serial_number": "",
+                            },
+                            {
+                                "id": 21,
+                                "type": "",
+                                "diameter": "",
+                                "wear": None,
+                                "stat": None,
+                                "max_temp": 0,
+                                "serial_number": "",
+                            },
+                        ]
+                    }
+                }
+            }
+        }
+        mqtt_client._process_message(payload)
+
+        assert len(mqtt_client.state.nozzle_rack) == 8
+        ids = [n["id"] for n in mqtt_client.state.nozzle_rack]
+        assert ids == [0, 1, 16, 17, 18, 19, 20, 21]
+
+    def test_h2d_nozzle_rack_populated_with_2_entries(self, mqtt_client):
+        """H2D provides 2 nozzle entries: IDs 0,1 (L/R hotend) — no rack slots."""
+        payload = {
+            "print": {
+                "device": {
+                    "nozzle": {
+                        "info": [
+                            {
+                                "id": 0,
+                                "type": "HS",
+                                "diameter": "0.4",
+                                "wear": 5,
+                                "stat": 1,
+                                "max_temp": 300,
+                                "serial_number": "SN-L",
+                            },
+                            {
+                                "id": 1,
+                                "type": "HS",
+                                "diameter": "0.4",
+                                "wear": 3,
+                                "stat": 1,
+                                "max_temp": 300,
+                                "serial_number": "SN-R",
+                            },
+                        ]
+                    }
+                }
+            }
+        }
+        mqtt_client._process_message(payload)
+
+        assert len(mqtt_client.state.nozzle_rack) == 2
+        ids = [n["id"] for n in mqtt_client.state.nozzle_rack]
+        assert ids == [0, 1]
+
+    def test_single_nozzle_h2s_populated(self, mqtt_client):
+        """H2S provides 1 nozzle entry: ID 0 only — single nozzle printer."""
+        payload = {
+            "print": {
+                "device": {
+                    "nozzle": {
+                        "info": [
+                            {
+                                "id": 0,
+                                "type": "HS",
+                                "diameter": "0.4",
+                                "wear": 2,
+                                "stat": 1,
+                                "max_temp": 300,
+                                "serial_number": "SN-0",
+                            },
+                        ]
+                    }
+                }
+            }
+        }
+        mqtt_client._process_message(payload)
+
+        assert len(mqtt_client.state.nozzle_rack) == 1
+        assert mqtt_client.state.nozzle_rack[0]["id"] == 0
+
+    def test_empty_nozzle_info_does_not_populate_rack(self, mqtt_client):
+        """Empty nozzle info list should not populate nozzle_rack."""
+        payload = {"print": {"device": {"nozzle": {"info": []}}}}
+        mqtt_client._process_message(payload)
+
+        assert mqtt_client.state.nozzle_rack == []
+
+    def test_nozzle_rack_sorted_by_id(self, mqtt_client):
+        """Nozzle rack entries should be sorted by ID regardless of input order."""
+        payload = {
+            "print": {
+                "device": {
+                    "nozzle": {
+                        "info": [
+                            {"id": 17, "type": "HS", "diameter": "0.6"},
+                            {"id": 0, "type": "HS", "diameter": "0.4"},
+                            {"id": 16, "type": "HS", "diameter": "0.4"},
+                            {"id": 1, "type": "HS", "diameter": "0.4"},
+                        ]
+                    }
+                }
+            }
+        }
+        mqtt_client._process_message(payload)
+
+        ids = [n["id"] for n in mqtt_client.state.nozzle_rack]
+        assert ids == [0, 1, 16, 17]
+
+    def test_nozzle_rack_field_mapping(self, mqtt_client):
+        """Verify field mapping from MQTT nozzle_info to nozzle_rack dict keys."""
+        payload = {
+            "print": {
+                "device": {
+                    "nozzle": {
+                        "info": [
+                            {
+                                "id": 16,
+                                "type": "HH01",
+                                "diameter": "0.6",
+                                "wear": 15,
+                                "stat": 0,
+                                "max_temp": 320,
+                                "serial_number": "SN-ABC123",
+                                "filament_colour": "FF8800",
+                                "filament_id": "F42",
+                                "tray_type": "ABS",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+        mqtt_client._process_message(payload)
+
+        slot = mqtt_client.state.nozzle_rack[0]
+        assert slot["id"] == 16
+        assert slot["type"] == "HH01"
+        assert slot["diameter"] == "0.6"
+        assert slot["wear"] == 15
+        assert slot["stat"] == 0
+        assert slot["max_temp"] == 320
+        assert slot["serial_number"] == "SN-ABC123"
+        assert slot["filament_color"] == "FF8800"
+        assert slot["filament_id"] == "F42"
+        assert slot["filament_type"] == "ABS"
+
+    def test_nozzle_info_updates_nozzle_state(self, mqtt_client):
+        """Nozzle info for IDs 0,1 should also update nozzle state (type/diameter)."""
+        payload = {
+            "print": {
+                "device": {
+                    "nozzle": {
+                        "info": [
+                            {"id": 0, "type": "HS", "diameter": "0.4"},
+                            {"id": 1, "type": "HH01", "diameter": "0.6"},
+                        ]
+                    }
+                }
+            }
+        }
+        mqtt_client._process_message(payload)
+
+        assert mqtt_client.state.nozzles[0].nozzle_type == "HS"
+        assert mqtt_client.state.nozzles[0].nozzle_diameter == "0.4"
+        assert mqtt_client.state.nozzles[1].nozzle_type == "HH01"
+        assert mqtt_client.state.nozzles[1].nozzle_diameter == "0.6"
