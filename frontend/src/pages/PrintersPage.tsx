@@ -675,7 +675,6 @@ function DualNozzleHoverCard({ leftSlot, rightSlot, activeNozzle, children }: {
     const isActive = activeNozzle === side;
     const typeFull = nozzleTypeName(slot.nozzle_type, t);
     const flowFull = nozzleFlowName(slot.nozzle_type, t);
-
     return (
       <div className="flex-1 space-y-1.5">
         <div className={`text-[10px] font-bold pb-1 border-b border-bambu-dark-tertiary/50 ${isActive ? 'text-amber-400' : 'text-bambu-gray'}`}>
@@ -715,13 +714,14 @@ function DualNozzleHoverCard({ leftSlot, rightSlot, activeNozzle, children }: {
             <span className="text-xs text-white font-semibold">{slot.wear}%</span>
           </div>
         )}
-        {slot.max_temp > 0 && (
+        {/* Serial and max temp only available on the right (removable) nozzle */}
+        {side === 'R' && slot.max_temp > 0 && (
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-bambu-gray">{t('printers.nozzleMaxTemp')}</span>
             <span className="text-xs text-white font-semibold">{slot.max_temp}°C</span>
           </div>
         )}
-        {slot.serial_number && (
+        {side === 'R' && slot.serial_number && (
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-bambu-gray">{t('printers.nozzleSerial')}</span>
             <span className="text-[10px] text-white font-mono">{slot.serial_number}</span>
@@ -2393,8 +2393,11 @@ function PrinterCard({
               // active_extruder: 0=right, 1=left
               const activeNozzle = status.active_extruder === 1 ? 'L' : 'R';
               // Extended nozzle data from nozzle_rack (H2 series: wear, serial, max_temp, etc.)
-              const leftNozzleSlot = status.nozzle_rack?.find(s => s.id === 0);
-              const rightNozzleSlot = status.nozzle_rack?.find(s => s.id === 1);
+              // nozzle_rack id 0 = extruder 0 = RIGHT, id 1 = extruder 1 = LEFT
+              const leftNozzleSlot = status.nozzle_rack?.find(s => s.id === 1);
+              const rightNozzleSlot = status.nozzle_rack?.find(s => s.id === 0);
+              // Single-nozzle models (H2D, H2C): use the primary nozzle (id 0)
+              const singleNozzleSlot = rightNozzleSlot || leftNozzleSlot;
 
               return (
                 <div className="flex items-stretch gap-1.5 flex-wrap">
@@ -2408,8 +2411,8 @@ function PrinterCard({
                           {Math.round(status.temperatures.nozzle || 0)}° / {Math.round(status.temperatures.nozzle_2 || 0)}°
                         </p>
                       </>
-                    ) : leftNozzleSlot ? (
-                      <NozzleSlotHoverCard slot={leftNozzleSlot} index={0} activeStatus filamentName={leftNozzleSlot.filament_id ? filamentInfo?.[leftNozzleSlot.filament_id]?.name : undefined}>
+                    ) : singleNozzleSlot ? (
+                      <NozzleSlotHoverCard slot={singleNozzleSlot} index={0} activeStatus filamentName={singleNozzleSlot.filament_id ? filamentInfo?.[singleNozzleSlot.filament_id]?.name : undefined}>
                         <div className="cursor-default">
                           <p className="text-[9px] text-bambu-gray">{t('printers.temperatures.nozzle')}</p>
                           <p className="text-[11px] text-white">
