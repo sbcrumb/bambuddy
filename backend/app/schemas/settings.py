@@ -130,6 +130,12 @@ class AppSettings(BaseModel):
         description="Camera view mode: 'window' opens in new browser window, 'embedded' shows overlay on main screen",
     )
 
+    # Preferred slicer application
+    preferred_slicer: str = Field(
+        default="bambu_studio",
+        description="Preferred slicer: 'bambu_studio' or 'orcaslicer'",
+    )
+
     # Prometheus metrics endpoint
     prometheus_enabled: bool = Field(default=False, description="Enable Prometheus metrics endpoint at /metrics")
     prometheus_token: str = Field(
@@ -191,5 +197,6 @@ class AppSettingsUpdate(BaseModel):
     library_archive_mode: str | None = None
     library_disk_warning_gb: float | None = None
     camera_view_mode: str | None = None
+    preferred_slicer: str | None = None
     prometheus_enabled: bool | None = None
     prometheus_token: str | None = None

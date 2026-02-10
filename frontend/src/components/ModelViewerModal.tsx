@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
 import { X, ExternalLink, Box, Code2, Loader2, Layers, Check, Maximize2, Minimize2 } from 'lucide-react';
 import { ModelViewer } from './ModelViewer';
 import { GcodeViewer } from './GcodeViewer';
 import { Button } from './Button';
 import { api } from '../api/client';
-import { openInSlicer } from '../utils/slicer';
+import { openInSlicer, type SlicerType } from '../utils/slicer';
 import type { ArchivePlatesResponse, LibraryFilePlatesResponse, PlateMetadata } from '../types/plates';
 
 type ViewTab = '3d' | 'gcode';
@@ -28,6 +29,8 @@ interface Capabilities {
 
 export function ModelViewerModal({ archiveId, libraryFileId, title, fileType, onClose }: ModelViewerModalProps) {
   const { t } = useTranslation();
+  const { data: settings } = useQuery({ queryKey: ['settings'], queryFn: api.getSettings });
+  const preferredSlicer: SlicerType = settings?.preferred_slicer || 'bambu_studio';
   const isLibrary = libraryFileId != null;
   const [activeTab, setActiveTab] = useState<ViewTab | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
@@ -266,11 +269,11 @@ export function ModelViewerModal({ archiveId, libraryFileId, title, fileType, on
     const filename = title || 'model';
     if (isLibrary) {
       const downloadUrl = `${window.location.origin}${api.getLibraryFileDownloadUrl(libraryFileId!)}`;
-      openInSlicer(downloadUrl);
+      openInSlicer(downloadUrl, preferredSlicer);
       return;
     }
     const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archiveId!, filename)}`;
-    openInSlicer(downloadUrl);
+    openInSlicer(downloadUrl, preferredSlicer);
   };
 
   return (

@@ -48,7 +48,7 @@ import {
   User,
 } from 'lucide-react';
 import { api } from '../api/client';
-import { openInSlicer } from '../utils/slicer';
+import { openInSlicer, type SlicerType } from '../utils/slicer';
 import { formatDateTime, formatDateOnly, parseUTCDate, type TimeFormat } from '../utils/date';
 import { useIsMobile } from '../hooks/useIsMobile';
 import type { Archive, ProjectListItem } from '../api/client';
@@ -119,6 +119,7 @@ function ArchiveCard({
   projects,
   isHighlighted,
   timeFormat = 'system',
+  preferredSlicer = 'bambu_studio',
   t,
 }: {
   archive: Archive;
@@ -129,6 +130,7 @@ function ArchiveCard({
   projects: ProjectListItem[] | undefined;
   isHighlighted?: boolean;
   timeFormat?: TimeFormat;
+  preferredSlicer?: SlicerType;
   t: TFunction;
 }) {
   // Debug: log when card is highlighted
@@ -317,7 +319,7 @@ function ArchiveCard({
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
           const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
-          openInSlicer(downloadUrl);
+          openInSlicer(downloadUrl, preferredSlicer);
         },
       },
     ] : [
@@ -327,7 +329,7 @@ function ArchiveCard({
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
           const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
-          openInSlicer(downloadUrl);
+          openInSlicer(downloadUrl, preferredSlicer);
         },
       },
     ]),
@@ -701,7 +703,7 @@ function ArchiveCard({
               // Open source 3MF in Bambu Studio - use filename in URL for slicer compatibility
               const sourceName = (archive.print_name || archive.filename || 'source').replace(/\.gcode\.3mf$/i, '') + '_source';
               const downloadUrl = `${window.location.origin}${api.getSource3mfForSlicer(archive.id, sourceName)}`;
-              openInSlicer(downloadUrl);
+              openInSlicer(downloadUrl, preferredSlicer);
             }}
             title={t('archives.card.openSource3mf')}
           >
@@ -948,7 +950,7 @@ function ArchiveCard({
                 onClick={() => {
                   const filename = archive.print_name || archive.filename || 'model';
                   const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
-                  openInSlicer(downloadUrl);
+                  openInSlicer(downloadUrl, preferredSlicer);
                 }}
                 title={t('archives.card.openInBambuStudio')}
               >
@@ -964,7 +966,7 @@ function ArchiveCard({
               onClick={() => {
                 const filename = archive.print_name || archive.filename || 'model';
                 const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
-                openInSlicer(downloadUrl);
+                openInSlicer(downloadUrl, preferredSlicer);
               }}
               title={t('archives.card.openInBambuStudioToSlice')}
             >
@@ -1276,6 +1278,7 @@ function ArchiveListRow({
   selectionMode,
   projects,
   isHighlighted,
+  preferredSlicer = 'bambu_studio',
   t,
 }: {
   archive: Archive;
@@ -1285,6 +1288,7 @@ function ArchiveListRow({
   selectionMode: boolean;
   projects: ProjectListItem[] | undefined;
   isHighlighted?: boolean;
+  preferredSlicer?: SlicerType;
   t: TFunction;
 }) {
   const queryClient = useQueryClient();
@@ -1450,7 +1454,7 @@ function ArchiveListRow({
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
           const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
-          openInSlicer(downloadUrl);
+          openInSlicer(downloadUrl, preferredSlicer);
         },
       },
     ] : [
@@ -1460,7 +1464,7 @@ function ArchiveListRow({
         onClick: () => {
           const filename = archive.print_name || archive.filename || 'model';
           const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
-          openInSlicer(downloadUrl);
+          openInSlicer(downloadUrl, preferredSlicer);
         },
       },
     ]),
@@ -1770,7 +1774,7 @@ function ArchiveListRow({
             onClick={() => {
               const filename = archive.print_name || archive.filename || 'model';
               const downloadUrl = `${window.location.origin}${api.getArchiveForSlicer(archive.id, filename)}`;
-              openInSlicer(downloadUrl);
+              openInSlicer(downloadUrl, preferredSlicer);
             }}
             title={t('archives.card.openInBambuStudio')}
           >
@@ -2161,6 +2165,7 @@ export function ArchivesPage() {
   });
 
   const timeFormat: TimeFormat = settings?.time_format || 'system';
+  const preferredSlicer: SlicerType = settings?.preferred_slicer || 'bambu_studio';
 
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: number[]) => {
@@ -2910,6 +2915,7 @@ export function ArchivesPage() {
               projects={projects}
               isHighlighted={archive.id === highlightedArchiveId}
               timeFormat={timeFormat}
+              preferredSlicer={preferredSlicer}
               t={t}
             />
           ))}
@@ -2937,6 +2943,7 @@ export function ArchivesPage() {
                 selectionMode={selectionMode}
                 projects={projects}
                 isHighlighted={archive.id === highlightedArchiveId}
+                preferredSlicer={preferredSlicer}
                 t={t}
               />
             ))}

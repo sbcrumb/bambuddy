@@ -1,10 +1,15 @@
 /**
- * Utility for opening files in Bambu Studio slicer
+ * Utility for opening files in slicer applications
  *
- * The URL protocol handler is OS-specific:
- * - Windows: bambustudio://
- * - macOS/Linux: bambustudioopen://
+ * Bambu Studio URL protocol is OS-specific:
+ * - Windows: bambustudio://<encoded-URL>
+ * - macOS/Linux: bambustudioopen://<encoded-URL>
+ *
+ * OrcaSlicer uses the same protocol on all platforms:
+ * - orcaslicer://open?file=<URL>
  */
+
+export type SlicerType = 'bambu_studio' | 'orcaslicer';
 
 type Platform = 'windows' | 'macos' | 'linux' | 'unknown';
 
@@ -28,28 +33,31 @@ export function detectPlatform(): Platform {
 }
 
 /**
- * Get the appropriate slicer protocol for the current OS
+ * Open a URL in the specified slicer application.
+ * Uses a temporary link element to trigger the protocol handler,
+ * which avoids browser "unknown protocol" blocks on window.location.href.
+ * @param downloadUrl - The URL to the file to open
+ * @param slicer - Which slicer to use (defaults to bambu_studio)
  */
-export function getSlicerProtocol(): string {
-  const platform = detectPlatform();
+export function openInSlicer(downloadUrl: string, slicer: SlicerType = 'bambu_studio'): void {
+  let url: string;
 
-  switch (platform) {
-    case 'windows':
-      return 'bambustudio://';
-    case 'macos':
-    case 'linux':
-    default:
-      return 'bambustudioopen://';
+  if (slicer === 'orcaslicer') {
+    url = `orcaslicer://open?file=${downloadUrl}`;
+  } else {
+    const platform = detectPlatform();
+    const protocol = platform === 'windows' ? 'bambustudio' : 'bambustudioopen';
+    url = `${protocol}://${encodeURIComponent(downloadUrl)}`;
   }
-}
 
-/**
- * Open a URL in Bambu Studio slicer
- * @param downloadUrl - The URL to the file to open (will be encoded)
- */
-export function openInSlicer(downloadUrl: string): void {
-  const protocol = getSlicerProtocol();
-  window.location.href = `${protocol}${encodeURIComponent(downloadUrl)}`;
+  // Use a temporary <a> element to trigger the protocol handler.
+  // This works more reliably than window.location.href for custom protocols.
+  const link = document.createElement('a');
+  link.href = url;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 /**
@@ -63,8 +71,9 @@ export function buildDownloadUrl(path: string): string {
 /**
  * Convenience function to open an archive in the slicer
  * @param path - The API path to the archive
+ * @param slicer - Which slicer to use (defaults to bambu_studio)
  */
-export function openArchiveInSlicer(path: string): void {
+export function openArchiveInSlicer(path: string, slicer: SlicerType = 'bambu_studio'): void {
   const downloadUrl = buildDownloadUrl(path);
-  openInSlicer(downloadUrl);
+  openInSlicer(downloadUrl, slicer);
 }

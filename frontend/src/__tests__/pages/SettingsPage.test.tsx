@@ -118,6 +118,23 @@ describe('SettingsPage', () => {
       });
     });
 
+    it('shows preferred slicer setting', async () => {
+      render(<SettingsPage />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Preferred Slicer')).toBeInTheDocument();
+      });
+    });
+
+    it('shows slicer dropdown with both options', async () => {
+      render(<SettingsPage />);
+
+      await waitFor(() => {
+        const slicerSelect = screen.getAllByDisplayValue('Bambu Studio');
+        expect(slicerSelect.length).toBeGreaterThan(0);
+      });
+    });
+
     it('shows appearance section', async () => {
       render(<SettingsPage />);
 

@@ -772,6 +772,8 @@ export interface AppSettings {
   library_disk_warning_gb: number;
   // Camera view settings
   camera_view_mode: 'window' | 'embedded';
+  // Preferred slicer
+  preferred_slicer: 'bambu_studio' | 'orcaslicer';
   // Prometheus metrics
   prometheus_enabled: boolean;
   prometheus_token: string;
