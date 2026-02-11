@@ -4,6 +4,9 @@ All notable changes to Bambuddy will be documented in this file.
 
 ## [0.2.0b] - Not released
 
+### Fixed
+- **External Camera Not Used for Snapshot + Stream Dropping** ([#325](https://github.com/maziggy/bambuddy/issues/325)) — The snapshot endpoint (`/camera/snapshot`) always used the internal printer camera even when an external camera was configured. Now checks for external camera first, matching the existing stream endpoint behavior. Also fixed external MJPEG and RTSP streams silently dropping every ~60 seconds due to missing reconnect logic — the underlying stream generators exit on read timeout, and the caller now retries up to 3 times with a 2-second delay instead of ending the stream.
+
 ## [0.1.9] - 2026-02-10
 
 ### New Features

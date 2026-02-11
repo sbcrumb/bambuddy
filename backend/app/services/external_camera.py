@@ -487,17 +487,41 @@ async def generate_mjpeg_stream(url: str, camera_type: str, fps: int = 10) -> As
     last_frame_time = 0.0
 
     if camera_type == "mjpeg":
-        # Proxy MJPEG stream directly
-        async for frame in _stream_mjpeg(url):
-            current_time = asyncio.get_event_loop().time()
-            if current_time - last_frame_time >= frame_interval:
-                last_frame_time = current_time
-                yield _format_mjpeg_frame(frame)
+        # Proxy MJPEG stream directly, with reconnect on timeout
+        max_retries = 3
+        for attempt in range(max_retries + 1):
+            frame_yielded = False
+            async for frame in _stream_mjpeg(url):
+                frame_yielded = True
+                current_time = asyncio.get_event_loop().time()
+                if current_time - last_frame_time >= frame_interval:
+                    last_frame_time = current_time
+                    yield _format_mjpeg_frame(frame)
+            if not frame_yielded or attempt == max_retries:
+                break
+            logger.warning(
+                "External MJPEG stream ended, reconnecting (attempt %d/%d)...",
+                attempt + 1,
+                max_retries,
+            )
+            await asyncio.sleep(2)
 
     elif camera_type == "rtsp":
-        # Use ffmpeg to convert RTSP to MJPEG
-        async for frame in _stream_rtsp(url, fps):
-            yield _format_mjpeg_frame(frame)
+        # Use ffmpeg to convert RTSP to MJPEG, with reconnect on timeout
+        max_retries = 3
+        for attempt in range(max_retries + 1):
+            frame_yielded = False
+            async for frame in _stream_rtsp(url, fps):
+                frame_yielded = True
+                yield _format_mjpeg_frame(frame)
+            if not frame_yielded or attempt == max_retries:
+                break
+            logger.warning(
+                "External RTSP stream ended, reconnecting (attempt %d/%d)...",
+                attempt + 1,
+                max_retries,
+            )
+            await asyncio.sleep(2)
 
     elif camera_type == "usb":
         # Use ffmpeg to stream from USB camera
