@@ -1587,6 +1587,21 @@ export function SettingsPage() {
                   <option value="CNY">CNY (¥)</option>
                   <option value="CAD">CAD ($)</option>
                   <option value="AUD">AUD ($)</option>
+                  <option value="HKD">HKD ($)</option>
+                  <option value="INR">INR (₹)</option>
+                  <option value="KRW">KRW (₩)</option>
+                  <option value="SEK">SEK (kr)</option>
+                  <option value="NOK">NOK (kr)</option>
+                  <option value="DKK">DKK (kr)</option>
+                  <option value="PLN">PLN (zł)</option>
+                  <option value="BRL">BRL (R$)</option>
+                  <option value="TWD">TWD ($)</option>
+                  <option value="SGD">SGD ($)</option>
+                  <option value="NZD">NZD ($)</option>
+                  <option value="MXN">MXN ($)</option>
+                  <option value="CZK">CZK (Kč)</option>
+                  <option value="THB">THB (฿)</option>
+                  <option value="ZAR">ZAR (R)</option>
                 </select>
               </div>
               <div>
