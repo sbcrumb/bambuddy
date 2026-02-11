@@ -10,6 +10,7 @@ All notable changes to Bambuddy will be documented in this file.
 
 ### Improved
 - **Additional Currency Options** ([#329](https://github.com/maziggy/bambuddy/issues/329)) — Added 16 additional currencies to the cost tracking dropdown: HKD, INR, KRW, SEK, NOK, DKK, PLN, BRL, TWD, SGD, NZD, MXN, CZK, THB, ZAR.
+- **Move Email Settings Under Authentication Tab** — Renamed the settings "Users" tab to "Authentication" and moved the standalone "Global Email" tab into it as an "Email Authentication" sub-tab. Groups email/SMTP configuration with user management where it logically belongs. Legacy `?tab=email` URLs are handled automatically.
 
 ## [0.1.9] - 2026-02-10
 

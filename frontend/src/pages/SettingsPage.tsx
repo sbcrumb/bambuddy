@@ -31,8 +31,9 @@ import { useTheme, type ThemeStyle, type DarkBackground, type LightBackground, t
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Palette } from 'lucide-react';
 
-const validTabs = ['general', 'network', 'plugs', 'email', 'notifications', 'filament', 'apikeys', 'virtual-printer', 'users', 'backup'] as const;
+const validTabs = ['general', 'network', 'plugs', 'notifications', 'filament', 'apikeys', 'virtual-printer', 'users', 'backup'] as const;
 type TabType = typeof validTabs[number];
+type UsersSubTab = 'users' | 'email';
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
@@ -57,14 +58,19 @@ export function SettingsPage() {
   const [showLogViewer, setShowLogViewer] = useState(false);
   const [defaultView, setDefaultViewState] = useState<string>(getDefaultView());
 
-  // Initialize tab from URL params
+  // Initialize tab from URL params (handle legacy ?tab=email → users tab + email sub-tab)
   const tabParam = searchParams.get('tab');
-  const initialTab = tabParam && validTabs.includes(tabParam as TabType) ? tabParam as TabType : 'general';
+  const isLegacyEmailTab = tabParam === 'email';
+  const initialTab = isLegacyEmailTab ? 'users' : (tabParam && validTabs.includes(tabParam as TabType) ? tabParam as TabType : 'general');
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
+  const [usersSubTab, setUsersSubTab] = useState<UsersSubTab>(isLegacyEmailTab ? 'email' : 'users');
 
   // Update URL when tab changes
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
+    if (tab === 'users') {
+      setUsersSubTab('users');
+    }
     if (tab === 'general') {
       searchParams.delete('tab');
     } else {
@@ -985,20 +991,6 @@ export function SettingsPage() {
             <span className="text-xs bg-bambu-dark-tertiary px-1.5 py-0.5 rounded-full">
               {smartPlugs.length}
             </span>
-          )}
-        </button>
-        <button
-          onClick={() => handleTabChange('email')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
-            activeTab === 'email'
-              ? 'text-bambu-green border-bambu-green'
-              : 'text-bambu-gray hover:text-gray-900 dark:hover:text-white border-transparent'
-          }`}
-        >
-          <Mail className="w-4 h-4" />
-          {t('settings.tabs.globalEmail') || 'Global Email'}
-          {advancedAuthStatus?.advanced_auth_enabled && (
-            <span className="w-2 h-2 rounded-full bg-green-400" />
           )}
         </button>
         <button
@@ -3482,6 +3474,38 @@ export function SettingsPage() {
       {/* Users Tab */}
       {activeTab === 'users' && (
         <div className="space-y-6">
+          {/* Sub-tab Navigation */}
+          <div className="flex gap-1 border-b border-bambu-dark-tertiary">
+            <button
+              onClick={() => setUsersSubTab('users')}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
+                usersSubTab === 'users'
+                  ? 'text-bambu-green border-bambu-green'
+                  : 'text-bambu-gray hover:text-gray-900 dark:hover:text-white border-transparent'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              {t('settings.tabs.users')}
+            </button>
+            <button
+              onClick={() => setUsersSubTab('email')}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${
+                usersSubTab === 'email'
+                  ? 'text-bambu-green border-bambu-green'
+                  : 'text-bambu-gray hover:text-gray-900 dark:hover:text-white border-transparent'
+              }`}
+            >
+              <Mail className="w-4 h-4" />
+              {t('settings.tabs.emailAuth') || 'Email Authentication'}
+              {advancedAuthStatus?.advanced_auth_enabled && (
+                <span className="w-2 h-2 rounded-full bg-green-400" />
+              )}
+            </button>
+          </div>
+
+          {/* Users Sub-tab */}
+          {usersSubTab === 'users' && (
+          <>
           {/* Auth Toggle Header */}
           <Card>
             <CardContent className="py-4">
@@ -3783,6 +3807,15 @@ export function SettingsPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+          </>
+          )}
+
+          {/* Email Auth Sub-tab */}
+          {usersSubTab === 'email' && (
+            <div className="max-w-2xl">
+              <EmailSettings />
+            </div>
           )}
         </div>
       )}
@@ -4403,13 +4436,6 @@ export function SettingsPage() {
           }}
           onCancel={() => setDeleteGroupId(null)}
         />
-      )}
-
-      {/* Email Tab */}
-      {activeTab === 'email' && (
-        <div className="max-w-2xl">
-          <EmailSettings />
-        </div>
       )}
 
       {/* Backup Tab */}

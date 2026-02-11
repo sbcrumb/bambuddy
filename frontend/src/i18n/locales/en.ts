@@ -1019,9 +1019,9 @@ export default {
       network: 'Network',
       apiKeys: 'API Keys',
       virtualPrinter: 'Virtual Printer',
-      users: 'Users',
+      users: 'Authentication',
       backup: 'Backup',
-      globalEmail: 'Global Email',
+      emailAuth: 'Email Authentication',
     },
     // Email settings
     email: {
