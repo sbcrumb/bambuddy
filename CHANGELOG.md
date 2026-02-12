@@ -4,6 +4,11 @@ All notable changes to Bambuddy will be documented in this file.
 
 ## [0.2.0b] - Not released
 
+### New Features
+- **Spool Inventory — AMS Slot Assignment** — Assign inventory spools to AMS slots for filament tracking. Hover over any non-Bambu-Lab AMS slot to assign or unassign spools. The assign modal filters out Bambu Lab spools (tracked via RFID) and spools already assigned to other slots. Bambu Lab spool slots automatically hide assign/unassign UI since they are managed by the AMS. When a Bambu Lab spool is inserted into a slot with a manual assignment, the assignment is automatically unlinked.
+- **Spool Inventory — Remaining Weight Editing** — Edit the remaining filament weight when adding or editing a spool. The new "Remaining Weight" field in the Additional section shows current weight (label weight minus consumed) with a max reference. Edits are stored as `weight_used` internally.
+- **Spool Inventory — 3MF-Based Usage Tracking for Non-BL Spools** — Non-Bambu-Lab spools (no RFID) cannot use AMS remain% for usage tracking. Now falls back to per-filament weight estimates from the archived 3MF file (`used_g` per filament slot). For completed prints, uses the full slicer estimate. For failed or aborted prints, scales by print progress percentage. Bambu Lab spools continue using AMS remain% delta tracking as before.
+
 ### Fixed
 - **External Camera Not Used for Snapshot + Stream Dropping** ([#325](https://github.com/maziggy/bambuddy/issues/325)) — The snapshot endpoint (`/camera/snapshot`) always used the internal printer camera even when an external camera was configured. Now checks for external camera first, matching the existing stream endpoint behavior. Also fixed external MJPEG and RTSP streams silently dropping every ~60 seconds due to missing reconnect logic — the underlying stream generators exit on read timeout, and the caller now retries up to 3 times with a 2-second delay instead of ending the stream.
 - **H2C Nozzle Rack Text Unreadable on Light Filament Colors** ([#300](https://github.com/maziggy/bambuddy/issues/300)) — Nozzle rack slots use the loaded filament color as background, but white/light filaments made the white "0.4" text nearly invisible. Now uses a luminance check to switch to dark text on light backgrounds.

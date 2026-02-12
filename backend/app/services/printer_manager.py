@@ -533,7 +533,7 @@ def printer_state_to_dict(state: PrinterState, printer_id: int | None = None, mo
 
                 trays.append(
                     {
-                        "id": tray.get("id", 0),
+                        "id": int(tray.get("id", 0)),
                         "tray_color": tray.get("tray_color"),
                         "tray_type": tray.get("tray_type"),
                         "tray_sub_brands": tray.get("tray_sub_brands"),
@@ -570,7 +570,7 @@ def printer_state_to_dict(state: PrinterState, printer_id: int | None = None, mo
 
             ams_units.append(
                 {
-                    "id": ams_data.get("id", 0),
+                    "id": int(ams_data.get("id", 0)),
                     "humidity": humidity_value,
                     "temp": ams_data.get("temp"),
                     "is_ams_ht": is_ams_ht,

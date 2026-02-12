@@ -1062,7 +1062,9 @@ class BambuMQTTClient:
             self._previous_ams_hash = ams_hash
             if self.on_ams_change:
                 logger.info("[%s] AMS data changed, triggering sync callback", self.serial_number)
-                self.on_ams_change(ams_list)
+                # Pass merged AMS data (not raw ams_list) — partial MQTT updates
+                # may lack fields like 'remain' that the merged state preserves
+                self.on_ams_change(merged_ams)
 
     def _update_state(self, data: dict):
         """Update printer state from message data."""
