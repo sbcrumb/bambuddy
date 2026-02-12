@@ -25,6 +25,11 @@ class SpoolAssignment(Base):
 
     __table_args__ = (UniqueConstraint("printer_id", "ams_id", "tray_id"),)
 
+    @property
+    def printer_name(self) -> str | None:
+        """Get printer name from loaded relationship."""
+        return self.printer.name if self.printer else None
+
 
 from backend.app.models.printer import Printer  # noqa: E402, F401
 from backend.app.models.spool import Spool  # noqa: E402, F401

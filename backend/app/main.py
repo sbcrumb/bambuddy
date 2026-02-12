@@ -596,11 +596,34 @@ async def on_ams_change(printer_id: int, ams_data: list):
                         tray_info_idx = tray.get("tray_info_idx", "")
                         if not tray.get("tray_type"):
                             continue  # Empty slot
-                        # Skip if assignment already exists for this slot
+                        # Check if assignment already exists for this slot
                         existing = await db.execute(
-                            select(SA).where(SA.printer_id == printer_id, SA.ams_id == ams_id, SA.tray_id == tray_id)
+                            select(SA)
+                            .options(selectinload(SA.spool))
+                            .where(SA.printer_id == printer_id, SA.ams_id == ams_id, SA.tray_id == tray_id)
                         )
-                        if existing.scalar_one_or_none():
+                        existing_assignment = existing.scalar_one_or_none()
+                        if existing_assignment:
+                            # Sync spool weight_used from AMS remain if valid
+                            remain_raw = tray.get("remain")
+                            if remain_raw is not None and existing_assignment.spool:
+                                try:
+                                    remain_val = int(remain_raw)
+                                except (TypeError, ValueError):
+                                    remain_val = -1
+                                if 0 <= remain_val <= 100:
+                                    lw = existing_assignment.spool.label_weight or 1000
+                                    new_used = round(lw * (100 - remain_val) / 100.0, 1)
+                                    if abs((existing_assignment.spool.weight_used or 0) - new_used) > 1:
+                                        logger.info(
+                                            "Weight sync: spool %d weight_used %s -> %s (remain=%d)",
+                                            existing_assignment.spool_id,
+                                            existing_assignment.spool.weight_used,
+                                            new_used,
+                                            remain_val,
+                                        )
+                                        existing_assignment.spool.weight_used = new_used
+                                        await db.commit()
                             continue
 
                         if is_bambu_tag(tag_uid, tray_uuid, tray_info_idx):

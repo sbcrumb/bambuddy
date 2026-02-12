@@ -96,6 +96,7 @@ class SpoolAssignmentResponse(BaseModel):
     id: int
     spool_id: int
     printer_id: int
+    printer_name: str | None = None
     ams_id: int
     tray_id: int
     fingerprint_color: str | None = None

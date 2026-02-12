@@ -1784,6 +1784,7 @@ export interface SpoolAssignment {
   id: number;
   spool_id: number;
   printer_id: number;
+  printer_name: string | null;
   ams_id: number;
   tray_id: number;
   fingerprint_color: string | null;

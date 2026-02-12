@@ -613,7 +613,10 @@ async def list_assignments(
     _: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_READ),
 ):
     """List spool assignments, optionally filtered by printer."""
-    query = select(SpoolAssignment).options(selectinload(SpoolAssignment.spool).selectinload(Spool.k_profiles))
+    query = select(SpoolAssignment).options(
+        selectinload(SpoolAssignment.spool).selectinload(Spool.k_profiles),
+        selectinload(SpoolAssignment.printer),
+    )
     if printer_id is not None:
         query = query.where(SpoolAssignment.printer_id == printer_id)
     result = await db.execute(query)
@@ -745,7 +748,10 @@ async def assign_spool(
     # Return assignment with spool data
     result = await db.execute(
         select(SpoolAssignment)
-        .options(selectinload(SpoolAssignment.spool).selectinload(Spool.k_profiles))
+        .options(
+            selectinload(SpoolAssignment.spool).selectinload(Spool.k_profiles),
+            selectinload(SpoolAssignment.printer),
+        )
         .where(SpoolAssignment.id == assignment.id)
     )
     resp = result.scalar_one()

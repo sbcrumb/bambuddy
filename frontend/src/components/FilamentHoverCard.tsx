@@ -10,7 +10,7 @@ interface FilamentData {
   kFactor: string;
   fillLevel: number | null; // null = unknown
   trayUuid?: string | null; // Bambu Lab spool UUID for Spoolman linking
-  fillSource?: 'ams' | 'spoolman'; // Source of fill level data
+  fillSource?: 'ams' | 'spoolman' | 'inventory'; // Source of fill level data
 }
 
 interface SpoolmanConfig {
@@ -241,6 +241,9 @@ export function FilamentHoverCard({ data, children, disabled, className = '', sp
                     {data.fillLevel !== null ? `${data.fillLevel}%` : '—'}
                     {data.fillSource === 'spoolman' && data.fillLevel !== null && (
                       <span className="text-[9px] text-bambu-gray font-normal">{t('spoolman.fillSourceLabel')}</span>
+                    )}
+                    {data.fillSource === 'inventory' && data.fillLevel !== null && (
+                      <span className="text-[9px] text-bambu-gray font-normal">{t('inventory.fillSourceLabel')}</span>
                     )}
                   </span>
                 </div>

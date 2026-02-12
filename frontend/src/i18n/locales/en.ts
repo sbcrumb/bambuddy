@@ -2447,7 +2447,7 @@ export default {
     coreWeight: 'Empty Spool Weight',
     searchSpoolWeight: 'Search spool weight...',
     weightUsed: 'Used',
-    slicerFilament: 'Slicer Filament ID',
+    slicerFilament: 'Slicer Filament',
     slicerFilamentName: 'Slicer Preset Name',
     slicerPreset: 'Slicer Preset',
     searchPresets: 'Search filament presets...',
@@ -2569,6 +2569,7 @@ export default {
     weightConsumed: 'Weight Consumed',
     clearHistory: 'Clear',
     historyCleared: 'Usage history cleared',
+    fillSourceLabel: '(Inv)',
   },
 
   // Timelapse

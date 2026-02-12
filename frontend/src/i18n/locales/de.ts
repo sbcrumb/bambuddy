@@ -2447,7 +2447,7 @@ export default {
     coreWeight: 'Leergewicht der Spule',
     searchSpoolWeight: 'Spulengewicht suchen...',
     weightUsed: 'Verbraucht',
-    slicerFilament: 'Slicer-Filament-ID',
+    slicerFilament: 'Slicer-Filament',
     slicerFilamentName: 'Slicer-Preset-Name',
     slicerPreset: 'Slicer-Preset',
     searchPresets: 'Filament-Presets suchen...',
@@ -2565,6 +2565,7 @@ export default {
     weightConsumed: 'Verbrauchtes Gewicht',
     clearHistory: 'Löschen',
     historyCleared: 'Verbrauchshistorie gelöscht',
+    fillSourceLabel: '(Inv)',
   },
 
   // Timelapse

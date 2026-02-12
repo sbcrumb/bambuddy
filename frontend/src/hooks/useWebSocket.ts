@@ -228,9 +228,9 @@ export function useWebSocket() {
         break;
 
       case 'spool_auto_assigned':
-        // RFID tag matched - refresh inventory data
+        // RFID tag matched - refresh inventory and assignment data
         debouncedInvalidate('inventory-spools');
-        debouncedInvalidate('inventory-assignments');
+        debouncedInvalidate('spool-assignments');
         break;
 
       case 'spool_usage_logged':

@@ -12,6 +12,7 @@ import { Button } from '../components/Button';
 import { SpoolFormModal } from '../components/SpoolFormModal';
 import { ColumnConfigModal, type ColumnConfig } from '../components/ColumnConfigModal';
 import { useToast } from '../contexts/ToastContext';
+import { resolveSpoolColorName } from '../utils/colors';
 
 type ArchiveFilter = 'active' | 'archived';
 type UsageFilter = 'all' | 'used' | 'new';
@@ -149,12 +150,12 @@ const columnCells: Record<string, (ctx: CellCtx) => ReactNode> = {
     <span className="text-sm text-bambu-gray">{spool.last_used ? formatDate(spool.last_used) : 'Never'}</span>
   ),
   rgba: ({ spool }) => (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-center">
       <span
         className="w-5 h-5 rounded-full border border-white/20 flex-shrink-0"
         style={{ backgroundColor: spool.rgba ? `#${spool.rgba.substring(0, 6)}` : '#808080' }}
+        title={spool.rgba ? `#${spool.rgba.substring(0, 6)}` : undefined}
       />
-      <span className="text-sm text-white">{spool.color_name || '-'}</span>
     </div>
   ),
   material: ({ spool }) => (
@@ -164,7 +165,7 @@ const columnCells: Record<string, (ctx: CellCtx) => ReactNode> = {
     <span className="text-sm text-bambu-gray">{spool.subtype || '-'}</span>
   ),
   color_name: ({ spool }) => (
-    <span className="text-sm text-bambu-gray">{spool.color_name || '-'}</span>
+    <span className="text-sm text-bambu-gray">{resolveSpoolColorName(spool.color_name, spool.rgba) || '-'}</span>
   ),
   brand: ({ spool }) => (
     <span className="text-sm text-bambu-gray">{spool.brand || '-'}</span>
@@ -177,9 +178,13 @@ const columnCells: Record<string, (ctx: CellCtx) => ReactNode> = {
   location: ({ spool, assignmentMap }) => {
     const assignment = assignmentMap[spool.id];
     if (!assignment) return <span className="text-sm text-bambu-gray">-</span>;
+    const printerLabel = assignment.printer_name || `Printer ${assignment.printer_id}`;
+    // Bambu slot notation: AMS 0=A, 1=B, 2=C, 3=D; tray 0-based → 1-based
+    const slotLetter = String.fromCharCode(65 + assignment.ams_id);
+    const slotNumber = assignment.tray_id + 1;
     return (
       <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-400">
-        AMS {assignment.ams_id} T{assignment.tray_id}
+        {printerLabel} {slotLetter}{slotNumber}
       </span>
     );
   },
@@ -701,7 +706,7 @@ export default function InventoryPage() {
                     {/* Color header */}
                     <div className="h-14 flex items-center justify-center" style={{ backgroundColor: colorStyle }}>
                       <span className="bg-white/90 text-gray-800 px-3 py-0.5 rounded-full text-sm font-medium">
-                        {spool.color_name || '-'}
+                        {resolveSpoolColorName(spool.color_name, spool.rgba) || '-'}
                       </span>
                     </div>
                     {/* Content */}

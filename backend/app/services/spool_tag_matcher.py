@@ -63,11 +63,23 @@ async def create_spool_from_tray(db: AsyncSession, tray_data: dict) -> Spool:
     elif tray_sub_brands and tray_sub_brands.upper() != material.upper():
         material = tray_sub_brands
 
-    # Try to find color name from color catalog
-    color_name = tray_id_name or None
-    rgba = tray_color if tray_color else None
+    # Resolve color name from tray_id_name code, hex catalog, or raw tray_id_name
+    from backend.app.core.bambu_colors import resolve_bambu_color_name
 
-    # Look up color catalog for a better color name if we only have hex
+    rgba = tray_color if tray_color else None
+    color_name = None
+
+    # 1. Try Bambu color code mapping (e.g. "A06-D0" → "Titan Gray")
+    if tray_id_name:
+        color_name = resolve_bambu_color_name(tray_id_name)
+        logger.info("Color resolve: tray_id_name=%r → resolved=%r", tray_id_name, color_name)
+        # If not a known code, use tray_id_name directly (it may be a readable name)
+        if not color_name and "-" not in tray_id_name:
+            color_name = tray_id_name
+    else:
+        logger.info("Color resolve: tray_id_name is empty, rgba=%r", rgba)
+
+    # 2. Try color catalog lookup by hex color
     if not color_name and rgba and len(rgba) >= 6:
         hex_prefix = f"#{rgba[:6].upper()}"
         cat_result = await db.execute(
@@ -88,6 +100,30 @@ async def create_spool_from_tray(db: AsyncSession, tray_data: dict) -> Spool:
         core_weight = entry.weight
         break
 
+    # Resolve slicer filament name from builtin table
+    slicer_filament_name = None
+    if tray_info_idx:
+        try:
+            from backend.app.api.routes.cloud import _BUILTIN_FILAMENT_NAMES
+
+            slicer_filament_name = _BUILTIN_FILAMENT_NAMES.get(tray_info_idx)
+        except Exception:
+            pass
+        # Fallback: use tray_sub_brands as the display name
+        if not slicer_filament_name and tray_sub_brands:
+            slicer_filament_name = tray_sub_brands
+
+    # Calculate initial weight_used from AMS remain percentage
+    remain_raw = tray_data.get("remain")
+    try:
+        remain_pct = int(remain_raw) if remain_raw is not None else 100
+    except (TypeError, ValueError):
+        remain_pct = 100
+    # Clamp to valid range: negative means unknown, >100 is invalid
+    if remain_pct < 0 or remain_pct > 100:
+        remain_pct = 100  # Unknown → assume full
+    weight_used = round(label_weight * (100 - remain_pct) / 100.0, 1)
+
     spool = Spool(
         material=material,
         subtype=subtype,
@@ -96,8 +132,9 @@ async def create_spool_from_tray(db: AsyncSession, tray_data: dict) -> Spool:
         brand="Bambu Lab",
         label_weight=label_weight,
         core_weight=core_weight,
-        weight_used=0,
+        weight_used=weight_used,
         slicer_filament=tray_info_idx or None,
+        slicer_filament_name=slicer_filament_name,
         nozzle_temp_min=int(nozzle_min) if nozzle_min else None,
         nozzle_temp_max=int(nozzle_max) if nozzle_max else None,
         tag_uid=tag_uid if tag_uid and tag_uid != ZERO_TAG_UID else None,

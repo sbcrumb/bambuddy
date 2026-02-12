@@ -2688,14 +2688,24 @@ function PrinterCard({
                                 // Get saved slot preset mapping (for user-configured slots)
                                 const slotPreset = slotPresets?.[globalTrayId];
 
-                                // Spoolman fill level fallback (when AMS reports 0%)
+                                // Fill level fallback chain: AMS remain → Spoolman → Inventory spool
                                 const trayTag = tray?.tray_uuid?.toUpperCase();
                                 const linkedSpool = trayTag ? linkedSpools?.[trayTag] : undefined;
                                 const spoolmanFill = getSpoolmanFillLevel(linkedSpool);
+                                const inventoryAssignment = onGetAssignment?.(printer.id, ams.id, slotIdx);
+                                const inventoryFill = (() => {
+                                  const sp = inventoryAssignment?.spool;
+                                  if (sp && sp.label_weight > 0 && sp.weight_used > 0) {
+                                    return Math.round(Math.max(0, sp.label_weight - sp.weight_used) / sp.label_weight * 100);
+                                  }
+                                  return null;
+                                })();
                                 const effectiveFill = hasFillLevel && tray.remain > 0
                                   ? tray.remain
-                                  : (spoolmanFill ?? (hasFillLevel ? tray.remain : null));
-                                const fillSource = (hasFillLevel && tray.remain === 0 && spoolmanFill !== null) ? 'spoolman' as const : 'ams' as const;
+                                  : (spoolmanFill ?? inventoryFill ?? (hasFillLevel ? tray.remain : null));
+                                const fillSource = (hasFillLevel && tray.remain === 0 && (spoolmanFill !== null || inventoryFill !== null))
+                                  ? (spoolmanFill !== null ? 'spoolman' as const : 'inventory' as const)
+                                  : 'ams' as const;
 
                                 // Build filament data for hover card
                                 const filamentData = tray?.tray_type ? {
@@ -2898,14 +2908,25 @@ function PrinterCard({
                         // Get saved slot preset mapping (for user-configured slots)
                         const slotPreset = slotPresets?.[globalTrayId];
 
-                        // Spoolman fill level fallback (when AMS reports 0%)
+                        // Fill level fallback chain: AMS remain → Spoolman → Inventory spool
                         const htTrayTag = tray?.tray_uuid?.toUpperCase();
                         const htLinkedSpool = htTrayTag ? linkedSpools?.[htTrayTag] : undefined;
                         const htSpoolmanFill = getSpoolmanFillLevel(htLinkedSpool);
+                        const htTraySlotId = tray?.id ?? 0;
+                        const htInventoryAssignment = onGetAssignment?.(printer.id, ams.id, htTraySlotId);
+                        const htInventoryFill = (() => {
+                          const sp = htInventoryAssignment?.spool;
+                          if (sp && sp.label_weight > 0 && sp.weight_used > 0) {
+                            return Math.round(Math.max(0, sp.label_weight - sp.weight_used) / sp.label_weight * 100);
+                          }
+                          return null;
+                        })();
                         const htEffectiveFill = hasFillLevel && tray.remain > 0
                           ? tray.remain
-                          : (htSpoolmanFill ?? (hasFillLevel ? tray.remain : null));
-                        const htFillSource = (hasFillLevel && tray.remain === 0 && htSpoolmanFill !== null) ? 'spoolman' as const : 'ams' as const;
+                          : (htSpoolmanFill ?? htInventoryFill ?? (hasFillLevel ? tray.remain : null));
+                        const htFillSource = (hasFillLevel && tray.remain === 0 && (htSpoolmanFill !== null || htInventoryFill !== null))
+                          ? (htSpoolmanFill !== null ? 'spoolman' as const : 'inventory' as const)
+                          : 'ams' as const;
 
                         // Build filament data for hover card
                         const filamentData = tray?.tray_type ? {
@@ -3135,10 +3156,19 @@ function PrinterCard({
                         // Get saved slot preset mapping (external spool uses amsId=255, trayId=0)
                         const extSlotPreset = slotPresets?.[255 * 4 + 0];
 
-                        // Spoolman fill level for external spool
+                        // Fill level fallback chain: Spoolman → Inventory spool
                         const extTrayTag = extTray.tray_uuid?.toUpperCase();
                         const extLinkedSpool = extTrayTag ? linkedSpools?.[extTrayTag] : undefined;
                         const extSpoolmanFill = getSpoolmanFillLevel(extLinkedSpool);
+                        const extInventoryAssignment = onGetAssignment?.(printer.id, 255, 0);
+                        const extInventoryFill = (() => {
+                          const sp = extInventoryAssignment?.spool;
+                          if (sp && sp.label_weight > 0 && sp.weight_used > 0) {
+                            return Math.round(Math.max(0, sp.label_weight - sp.weight_used) / sp.label_weight * 100);
+                          }
+                          return null;
+                        })();
+                        const extEffectiveFill = extSpoolmanFill ?? extInventoryFill ?? null;
 
                         // Build filament data for hover card
                         const extFilamentData = {
@@ -3147,10 +3177,12 @@ function PrinterCard({
                           colorName: getBambuColorName(extTray.tray_id_name) || hexToBasicColorName(extTray.tray_color),
                           colorHex: extTray.tray_color || null,
                           kFactor: formatKValue(extTray.k),
-                          fillLevel: extSpoolmanFill, // Use Spoolman data if available
+                          fillLevel: extEffectiveFill,
                           trayUuid: extTray.tray_uuid || null,
                           tagUid: extTray.tag_uid || null,
-                          fillSource: extSpoolmanFill !== null ? 'spoolman' as const : undefined,
+                          fillSource: extSpoolmanFill !== null ? 'spoolman' as const
+                            : extInventoryFill !== null ? 'inventory' as const
+                            : undefined,
                         };
 
                         const extSlotContent = (

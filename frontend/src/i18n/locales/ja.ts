@@ -2378,7 +2378,7 @@ export default {
     coreWeight: '空スプール重量',
     searchSpoolWeight: 'スプール重量を検索...',
     weightUsed: '使用量',
-    slicerFilament: 'スライサーフィラメントID',
+    slicerFilament: 'スライサーフィラメント',
     slicerFilamentName: 'スライサープリセット名',
     slicerPreset: 'スライサープリセット',
     searchPresets: 'フィラメントプリセットを検索...',
@@ -2494,6 +2494,7 @@ export default {
     weightConsumed: '消費重量',
     clearHistory: 'クリア',
     historyCleared: '使用履歴がクリアされました',
+    fillSourceLabel: '(Inv)',
   },
   timelapse: {
     download: 'ダウンロード',
