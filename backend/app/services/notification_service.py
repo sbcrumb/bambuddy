@@ -728,8 +728,21 @@ class NotificationService:
             if archive_data.get("finish_photo_url"):
                 variables["finish_photo_url"] = archive_data["finish_photo_url"]
 
-            # Build per-slot breakdown string
-            if archive_data.get("filament_slots"):
+            # Build per-slot breakdown string with AMS info when available
+            if archive_data.get("usage_results"):
+                parts = []
+                for u in archive_data["usage_results"]:
+                    ams_id = u.get("ams_id", 0)
+                    tray_id = u.get("tray_id", 0)
+                    material = u.get("material", "Unknown") or "Unknown"
+                    used = u.get("weight_used", 0)
+                    if ams_id >= 128:
+                        slot_label = "Ext"
+                    else:
+                        slot_label = f"AMS-{chr(65 + ams_id)} T{tray_id + 1}"
+                    parts.append(f"{slot_label} {material}: {used:.1f}g")
+                variables["filament_details"] = " | ".join(parts)
+            elif archive_data.get("filament_slots"):
                 parts = []
                 for slot in archive_data["filament_slots"]:
                     ftype = slot.get("type", "Unknown") or "Unknown"

@@ -2133,6 +2133,7 @@ async def on_print_complete(printer_id: int, data: dict):
     log_timing("Archive status update")
 
     # Track filament consumption from AMS remain% deltas (skip if Spoolman handles usage)
+    usage_results: list[dict] = []
     try:
         async with async_session() as db:
             from backend.app.api.routes.settings import get_setting
@@ -2363,6 +2364,10 @@ async def on_print_complete(printer_id: int, data: dict):
                                 scale = max(0.0, min((data.get("progress") or 0) / 100.0, 1.0))
                                 slots = [{**s, "used_g": round(s["used_g"] * scale, 1)} for s in slots]
                             archive_data["filament_slots"] = slots
+
+                        # Pass usage tracker results for AMS slot info in notifications
+                        if usage_results:
+                            archive_data["usage_results"] = usage_results
                         # Add finish photo URL and image bytes if available
                         if finish_photo_filename:
                             from backend.app.api.routes.settings import get_setting

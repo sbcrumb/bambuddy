@@ -184,6 +184,7 @@ async def on_print_complete(
                             "percent_used": delta_pct,
                             "ams_id": ams_id,
                             "tray_id": tray_id,
+                            "material": spool.material,
                         }
                     )
 
@@ -384,6 +385,7 @@ async def _track_from_3mf(
                 "percent_used": percent,
                 "ams_id": ams_id,
                 "tray_id": tray_id,
+                "material": spool.material,
             }
         )
 
