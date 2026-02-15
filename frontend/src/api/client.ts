@@ -204,7 +204,7 @@ export interface PrinterStatus {
   hms_errors: HMSError[];
   ams: AMSUnit[];
   ams_exists: boolean;
-  vt_tray: AMSTray | null;  // Virtual tray / external spool
+  vt_tray: AMSTray[];  // Virtual tray / external spool(s)
   sdcard: boolean;  // SD card inserted
   store_to_sdcard: boolean;  // Store sent files on SD card
   timelapse: boolean;  // Timelapse recording active
@@ -249,6 +249,7 @@ export interface PrinterStatus {
   big_fan1_speed: number | null;     // Auxiliary fan
   big_fan2_speed: number | null;     // Chamber/exhaust fan
   heatbreak_fan_speed: number | null; // Hotend heatbreak fan
+  firmware_version: string | null;   // Firmware version from MQTT
 }
 
 export interface PrinterCreate {
@@ -366,6 +367,28 @@ export interface Archive {
   // User tracking (Issue #206)
   created_by_id: number | null;
   created_by_username: string | null;
+}
+
+export interface PrintLogEntry {
+  id: number;
+  print_name: string | null;
+  printer_name: string | null;
+  printer_id: number | null;
+  status: string;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_seconds: number | null;
+  filament_type: string | null;
+  filament_color: string | null;
+  filament_used_grams: number | null;
+  thumbnail_path: string | null;
+  created_by_username: string | null;
+  created_at: string;
+}
+
+export interface PrintLogResponse {
+  items: PrintLogEntry[];
+  total: number;
 }
 
 export interface ArchiveStats {
@@ -748,8 +771,6 @@ export interface AppSettings {
   // Date/time format settings
   date_format: 'system' | 'us' | 'eu' | 'iso';
   time_format: 'system' | '12h' | '24h';
-  // Filament tracking
-  disable_filament_warnings: boolean;  // Disable insufficient filament warnings when printing/queueing
   // Default printer
   default_printer_id: number | null;
   // Dark mode theme settings
@@ -792,6 +813,8 @@ export interface AppSettings {
   // Prometheus metrics
   prometheus_enabled: boolean;
   prometheus_token: string;
+  // Bed cooled threshold
+  bed_cooled_threshold: number;
 }
 
 export type AppSettingsUpdate = Partial<AppSettings>;
@@ -1403,6 +1426,8 @@ export interface NotificationProvider {
   on_ams_ht_temperature_high: boolean;
   // Build plate detection
   on_plate_not_empty: boolean;
+  // Bed cooled
+  on_bed_cooled: boolean;
   // Print queue events
   on_queue_job_added: boolean;
   on_queue_job_assigned: boolean;
@@ -1453,6 +1478,8 @@ export interface NotificationProviderCreate {
   on_ams_ht_temperature_high?: boolean;
   // Build plate detection
   on_plate_not_empty?: boolean;
+  // Bed cooled
+  on_bed_cooled?: boolean;
   // Print queue events
   on_queue_job_added?: boolean;
   on_queue_job_assigned?: boolean;
@@ -1496,6 +1523,8 @@ export interface NotificationProviderUpdate {
   on_ams_ht_temperature_high?: boolean;
   // Build plate detection
   on_plate_not_empty?: boolean;
+  // Bed cooled
+  on_bed_cooled?: boolean;
   // Print queue events
   on_queue_job_added?: boolean;
   on_queue_job_assigned?: boolean;
@@ -2947,6 +2976,32 @@ export const api = {
     return response.json();
   },
 
+  // Print Log
+  getPrintLog: (params?: {
+    search?: string;
+    printerId?: number;
+    username?: string;
+    status?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: number;
+    offset?: number;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.printerId) searchParams.set('printer_id', String(params.printerId));
+    if (params?.username) searchParams.set('created_by_username', params.username);
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.dateFrom) searchParams.set('date_from', params.dateFrom);
+    if (params?.dateTo) searchParams.set('date_to', params.dateTo);
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset !== undefined) searchParams.set('offset', String(params.offset));
+    return request<PrintLogResponse>(`/print-log/?${searchParams}`);
+  },
+  getPrintLogThumbnail: (id: number) => `${API_BASE}/print-log/${id}/thumbnail`,
+  clearPrintLog: () =>
+    request<{ deleted: number }>('/print-log/', { method: 'DELETE' }),
+
   // Settings
   getSettings: () => request<AppSettings>('/settings/'),
   updateSettings: (data: AppSettingsUpdate) =>
@@ -3030,6 +3085,8 @@ export const api = {
     request<SlicerSettingsResponse>(`/cloud/settings?version=${version}`),
   getBuiltinFilaments: () =>
     request<BuiltinFilament[]>('/cloud/builtin-filaments'),
+  getFilamentIdMap: () =>
+    request<Record<string, string>>('/cloud/filament-id-map'),
   getCloudSettingDetail: (settingId: string) =>
     request<SlicerSettingDetail>(`/cloud/settings/${settingId}`),
   createCloudSetting: (data: SlicerSettingCreate) =>
@@ -3362,9 +3419,9 @@ export const api = {
       body: JSON.stringify({ tray_uuid: trayUuid }),
     }),
   getSpoolmanSettings: () =>
-    request<{ spoolman_enabled: string; spoolman_url: string; spoolman_sync_mode: string; spoolman_disable_weight_sync: string; spoolman_report_partial_usage: string; disable_filament_warnings: string; }>('/settings/spoolman'),
-  updateSpoolmanSettings: (data: { spoolman_enabled?: string; spoolman_url?: string; spoolman_sync_mode?: string; spoolman_disable_weight_sync?: string; spoolman_report_partial_usage?: string; disable_filament_warnings?: string; }) =>
-    request<{ spoolman_enabled: string; spoolman_url: string; spoolman_sync_mode: string; spoolman_disable_weight_sync: string; spoolman_report_partial_usage: string; disable_filament_warnings: string; }>('/settings/spoolman', {
+    request<{ spoolman_enabled: string; spoolman_url: string; spoolman_sync_mode: string; spoolman_disable_weight_sync: string; spoolman_report_partial_usage: string; }>('/settings/spoolman'),
+  updateSpoolmanSettings: (data: { spoolman_enabled?: string; spoolman_url?: string; spoolman_sync_mode?: string; spoolman_disable_weight_sync?: string; spoolman_report_partial_usage?: string; }) =>
+    request<{ spoolman_enabled: string; spoolman_url: string; spoolman_sync_mode: string; spoolman_disable_weight_sync: string; spoolman_report_partial_usage: string; }>('/settings/spoolman', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
@@ -3427,6 +3484,8 @@ export const api = {
     request<{ status: string }>('/inventory/colors/reset', { method: 'POST' }),
   lookupColor: (manufacturer: string, colorName: string, material?: string) =>
     request<ColorLookupResult>(`/inventory/colors/lookup?manufacturer=${encodeURIComponent(manufacturer)}&color_name=${encodeURIComponent(colorName)}${material ? `&material=${encodeURIComponent(material)}` : ''}`),
+  searchColors: (manufacturer?: string, material?: string) =>
+    request<ColorCatalogEntry[]>(`/inventory/colors/search?${manufacturer ? `manufacturer=${encodeURIComponent(manufacturer)}` : ''}${manufacturer && material ? '&' : ''}${material ? `material=${encodeURIComponent(material)}` : ''}`),
   linkTagToSpool: (spoolId: number, data: { tag_uid?: string; tray_uuid?: string; tag_type?: string; data_origin?: string }) =>
     request<InventorySpool>(`/inventory/spools/${spoolId}/link-tag`, {
       method: 'PATCH',
@@ -3766,6 +3825,14 @@ export const api = {
 
   // System Info
   getSystemInfo: () => request<SystemInfo>('/system/info'),
+  getStorageUsage: (options?: { refresh?: boolean }) => {
+    const params = new URLSearchParams();
+    if (options?.refresh) {
+      params.set('refresh', 'true');
+    }
+    const query = params.toString();
+    return request<StorageUsageResponse>(`/system/storage-usage${query ? `?${query}` : ''}`);
+  },
 
   // Library (File Manager)
   getLibraryFolders: () => request<LibraryFolderTree[]>('/library/folders'),
@@ -4105,6 +4172,39 @@ export interface SystemInfo {
     count: number;
     count_logical: number;
     percent: number;
+  };
+}
+
+export interface StorageUsageCategory {
+  key: string;
+  label: string;
+  bytes: number;
+  formatted: string;
+  percent_of_total: number;
+}
+
+export interface StorageUsageOtherItem {
+  bucket: string;
+  label: string;
+  kind: 'system' | 'data';
+  deletable: boolean;
+  bytes: number;
+  formatted: string;
+  percent_of_total: number;
+}
+
+export interface StorageUsageResponse {
+  roots: string[];
+  total_bytes: number;
+  total_formatted: string;
+  categories: StorageUsageCategory[];
+  other_breakdown: StorageUsageOtherItem[];
+  scan_errors: number;
+  generated_at: string;
+  cache: {
+    hit: boolean;
+    age_seconds: number;
+    max_age_seconds: number;
   };
 }
 

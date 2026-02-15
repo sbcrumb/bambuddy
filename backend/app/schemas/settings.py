@@ -31,10 +31,6 @@ class AppSettings(BaseModel):
         default=True,
         description="Report Partial Usage for Failed Prints. When a print fails or is cancelled, report the estimated filament used up to that point based on layer progress.",
     )
-    disable_filament_warnings: bool = Field(
-        default=False,
-        description="Disable insufficient filament warnings when printing or queueing prints",
-    )
 
     # Updates
     check_updates: bool = Field(default=True, description="Automatically check for updates on startup")
@@ -42,6 +38,11 @@ class AppSettings(BaseModel):
 
     # Language
     notification_language: str = Field(default="en", description="Language for push notifications (en, de)")
+
+    # Bed cooled notification threshold
+    bed_cooled_threshold: float = Field(
+        default=35.0, description="Bed temperature threshold for cooled notification (°C)"
+    )
 
     # AMS threshold settings for humidity and temperature coloring
     ams_humidity_good: int = Field(default=40, description="Humidity threshold for good (green): <= this value")
@@ -162,10 +163,10 @@ class AppSettingsUpdate(BaseModel):
     spoolman_sync_mode: str | None = None
     spoolman_disable_weight_sync: bool | None = None
     spoolman_report_partial_usage: bool | None = None
-    disable_filament_warnings: bool | None = None
     check_updates: bool | None = None
     check_printer_firmware: bool | None = None
     notification_language: str | None = None
+    bed_cooled_threshold: float | None = None
     ams_humidity_good: int | None = None
     ams_humidity_fair: int | None = None
     ams_temp_good: float | None = None
