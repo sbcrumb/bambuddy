@@ -1166,6 +1166,7 @@ export default {
     builtInFeatureRfid: 'Détecte auto les bobines RFID Bambu Lab dans l\'AMS',
     builtInFeatureUsage: 'Suit la consommation par impression',
     builtInFeatureCatalog: 'Gère bobines, couleurs et profils facteur K',
+    builtInFeatureThirdParty: 'Les bobines tierces peuvent être assignées aux bobines d\'inventaire',
     // Spoolman settings
     spoolmanUrl: 'URL Spoolman',
     spoolmanUrlHint: 'URL de votre serveur Spoolman (ex: http://localhost:7912)',
@@ -2494,6 +2495,7 @@ export default {
     spoolArchived: 'Bobine archivée',
     spoolRestored: 'Bobine restaurée',
     deleteConfirm: 'Supprimer définitivement cette bobine ?',
+    archiveConfirm: 'Voulez-vous vraiment archiver cette bobine ?',
     advancedSettings: 'Paramètres Avancés',
     // Tabs
     filamentInfoTab: 'Infos Filament',

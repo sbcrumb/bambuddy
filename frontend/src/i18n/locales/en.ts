@@ -1170,6 +1170,7 @@ export default {
     builtInFeatureRfid: 'Automatically detects Bambu Lab RFID spools in AMS',
     builtInFeatureUsage: 'Tracks filament consumption per print',
     builtInFeatureCatalog: 'Manage spools, colors, and K-factor profiles',
+    builtInFeatureThirdParty: 'Third-party spools can be assigned to inventory spools',
     // Spoolman settings
     spoolmanUrl: 'Spoolman URL',
     spoolmanUrlHint: 'URL of your Spoolman server (e.g., http://localhost:7912)',
@@ -2498,6 +2499,7 @@ export default {
     spoolArchived: 'Spool archived',
     spoolRestored: 'Spool restored',
     deleteConfirm: 'Are you sure you want to delete this spool? This cannot be undone.',
+    archiveConfirm: 'Are you sure you want to archive this spool?',
     advancedSettings: 'Advanced Settings',
     // Tabs
     filamentInfoTab: 'Filament Info',

@@ -1410,6 +1410,7 @@ export default {
     builtInFeatureRfid: 'AMS内のBambu Lab RFIDスプールを自動検出',
     builtInFeatureUsage: 'プリントごとのフィラメント消費量を追跡',
     builtInFeatureCatalog: 'スプール、カラー、K値プロファイルを管理',
+    builtInFeatureThirdParty: 'サードパーティ製スプールをインベントリスプールに割り当て可能',
     // Spoolman設定
     spoolmanUrl: 'Spoolman URL',
     spoolmanUrlHint: 'Spoolmanサーバーのurl（例：http://localhost:7912）',
@@ -2429,6 +2430,7 @@ export default {
     spoolArchived: 'スプールをアーカイブしました',
     spoolRestored: 'スプールを復元しました',
     deleteConfirm: 'このスプールを削除しますか？この操作は元に戻せません。',
+    archiveConfirm: 'このスプールをアーカイブしますか？',
     advancedSettings: '詳細設定',
     filamentInfoTab: 'フィラメント情報',
     paProfileTab: 'PAプロファイル',
