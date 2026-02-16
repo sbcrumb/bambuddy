@@ -130,6 +130,8 @@ class PrinterState:
     active_extruder: int = 0
     # Currently loaded tray (global ID): 254/255 = external spools, 255 = no filament on legacy printers
     tray_now: int = 255
+    # Last valid tray_now (0-253) — survives unload (255) for usage tracking after print completes
+    last_loaded_tray: int = -1
     # Pending load target - used to track what tray we're loading for H2D disambiguation
     pending_tray_target: int | None = None
     # AMS status for filament change tracking (from print.ams.ams_status field)
@@ -926,6 +928,10 @@ class BambuMQTTClient:
                     # We only clear pending_tray_target explicitly in ams_unload_filament().
                     # Trust the printer's reported value.
                     self.state.tray_now = parsed_tray_now
+
+                # Track last valid tray for usage tracking (survives retract → 255 at print end)
+                if 0 <= self.state.tray_now <= 253:
+                    self.state.last_loaded_tray = self.state.tray_now
 
                 logger.debug("[%s] tray_now updated: %s", self.serial_number, self.state.tray_now)
 
@@ -1832,10 +1838,12 @@ class BambuMQTTClient:
                         if "diameter" in nozzle:
                             self.state.nozzles[idx].nozzle_diameter = str(nozzle["diameter"])
 
-        # Preserve AMS, vt_tray, and ams_extruder_map data when updating raw_data
+        # Preserve AMS, vt_tray, ams_extruder_map, and mapping data when updating raw_data
+        # (these fields aren't sent in every MQTT push, only when changed)
         ams_data = self.state.raw_data.get("ams")
         vt_tray_data = self.state.raw_data.get("vt_tray")
         ams_extruder_map_data = self.state.raw_data.get("ams_extruder_map")
+        mapping_data = self.state.raw_data.get("mapping")
         self.state.raw_data = data
         if ams_data is not None:
             self.state.raw_data["ams"] = ams_data
@@ -1843,6 +1851,12 @@ class BambuMQTTClient:
             self.state.raw_data["vt_tray"] = vt_tray_data
         if ams_extruder_map_data is not None:
             self.state.raw_data["ams_extruder_map"] = ams_extruder_map_data
+        if mapping_data is not None and "mapping" not in data:
+            self.state.raw_data["mapping"] = mapping_data
+
+        # Log mapping data when received (for usage tracking debugging)
+        if "mapping" in data:
+            logger.debug("[%s] MQTT mapping field: %s", self.serial_number, data["mapping"])
 
         # Log state transitions for debugging
         if "gcode_state" in data:

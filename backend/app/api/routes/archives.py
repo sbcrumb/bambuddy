@@ -2819,7 +2819,7 @@ async def reprint_archive(
         )
 
     # Register this as an expected print so we don't create a duplicate archive
-    register_expected_print(printer_id, remote_filename, archive_id)
+    register_expected_print(printer_id, remote_filename, archive_id, ams_mapping=body.ams_mapping)
 
     # Use plate_id from request if provided, otherwise auto-detect from 3MF file
     if body.plate_id is not None:

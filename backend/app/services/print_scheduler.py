@@ -1035,13 +1035,6 @@ class PrintScheduler:
             await self._power_off_if_needed(db, item)
             return
 
-        # Register as expected print so we don't create a duplicate archive
-        # Only applicable for archive-based prints
-        if archive:
-            from backend.app.main import register_expected_print
-
-            register_expected_print(item.printer_id, remote_filename, archive.id)
-
         # Parse AMS mapping if stored
         ams_mapping = None
         if item.ams_mapping:
@@ -1049,6 +1042,13 @@ class PrintScheduler:
                 ams_mapping = json.loads(item.ams_mapping)
             except json.JSONDecodeError:
                 logger.warning("Queue item %s: Invalid AMS mapping JSON, ignoring", item.id)
+
+        # Register as expected print so we don't create a duplicate archive
+        # Only applicable for archive-based prints
+        if archive:
+            from backend.app.main import register_expected_print
+
+            register_expected_print(item.printer_id, remote_filename, archive.id, ams_mapping=ams_mapping)
 
         # IMPORTANT: Set status to "printing" BEFORE sending the print command.
         # This prevents phantom reprints if the backend crashes/restarts after the

@@ -249,6 +249,10 @@ _print_energy_start: dict[int, float] = {}
 # Track reprints to add costs on completion: {archive_id}
 _reprint_archives: set[int] = set()
 
+# Track AMS mapping for prints: {archive_id: [global_tray_id_per_slot]}
+# Used by usage tracker to map 3MF slots to physical AMS trays
+_print_ams_mappings: dict[int, list[int]] = {}
+
 # Track progress milestones for notifications: {printer_id: last_milestone_notified}
 # Milestones are 25, 50, 75. Value of 0 means no milestone notified yet for current print.
 _last_progress_milestone: dict[int, int] = {}
@@ -292,7 +296,7 @@ async def _get_plug_energy(plug, db) -> dict | None:
         return await tasmota_service.get_energy(plug)
 
 
-def register_expected_print(printer_id: int, filename: str, archive_id: int):
+def register_expected_print(printer_id: int, filename: str, archive_id: int, ams_mapping: list[int] | None = None):
     """Register an expected print from reprint/scheduled so we don't create duplicate archives."""
     # Store with multiple filename variations to catch different naming patterns
     _expected_prints[(printer_id, filename)] = archive_id
@@ -301,8 +305,11 @@ def register_expected_print(printer_id: int, filename: str, archive_id: int):
         base = filename[:-4]
         _expected_prints[(printer_id, base)] = archive_id
         _expected_prints[(printer_id, f"{base}.gcode")] = archive_id
+    # Store AMS mapping for usage tracking at print completion
+    if ams_mapping is not None:
+        _print_ams_mappings[archive_id] = ams_mapping
     logging.getLogger(__name__).info(
-        f"Registered expected print: printer={printer_id}, file={filename}, archive={archive_id}"
+        f"Registered expected print: printer={printer_id}, file={filename}, archive={archive_id}, ams_mapping={ams_mapping}"
     )
 
 
@@ -537,6 +544,8 @@ async def on_ams_change(printer_id: int, ams_data: list):
     except Exception as e:
         logger.warning("Failed to broadcast AMS change for printer %s: %s", printer_id, e)
 
+    from backend.app.utils.color_utils import colors_similar as _colors_similar
+
     # Auto-unlink spool assignments with stale fingerprints
     try:
         async with async_session() as db:
@@ -604,14 +613,14 @@ async def on_ams_change(printer_id: int, ams_data: list):
                     cur_type = current_tray.get("tray_type", "")
                     fp_color = assignment.fingerprint_color or ""
                     fp_type = assignment.fingerprint_type or ""
-                    if cur_color.upper() != fp_color.upper() or cur_type.upper() != fp_type.upper():
+                    if not _colors_similar(cur_color, fp_color) or cur_type.upper() != fp_type.upper():
                         # Fingerprint mismatch — but check if tray now matches the
                         # assigned spool (e.g. auto-configure changed the tray).
                         spool = assignment.spool
                         if spool:
                             spool_color = (spool.rgba or "FFFFFFFF").upper()
                             spool_type = (spool.material or "").upper()
-                            if cur_color.upper() == spool_color and cur_type.upper() == spool_type:
+                            if _colors_similar(cur_color, spool_color) and cur_type.upper() == spool_type:
                                 # Tray was reconfigured to match the spool — update fingerprint
                                 logger.info(
                                     "Auto-unlink: spool %d AMS%d-T%d — fingerprint mismatch but tray matches spool, updating fp",
@@ -2194,6 +2203,7 @@ async def on_print_complete(printer_id: int, data: dict):
 
     # Track filament consumption from AMS remain% deltas (skip if Spoolman handles usage)
     usage_results: list[dict] = []
+    stored_ams_mapping = _print_ams_mappings.pop(archive_id, None) if archive_id else None
     try:
         async with async_session() as db:
             from backend.app.api.routes.settings import get_setting
@@ -2204,7 +2214,12 @@ async def on_print_complete(printer_id: int, data: dict):
 
             async with async_session() as db:
                 usage_results = await usage_on_print_complete(
-                    printer_id, data, printer_manager, db, archive_id=archive_id
+                    printer_id,
+                    data,
+                    printer_manager,
+                    db,
+                    archive_id=archive_id,
+                    ams_mapping=stored_ams_mapping,
                 )
                 if usage_results:
                     await ws_manager.broadcast(

@@ -28,6 +28,8 @@ class PrintSession:
     print_name: str
     started_at: datetime
     tray_remain_start: dict[tuple[int, int], int] = field(default_factory=dict)
+    # tray_now at print start (correct value, unlike at completion where it's 255)
+    tray_now_at_start: int = -1
 
 
 # Module-level storage, keyed by printer_id
@@ -58,6 +60,9 @@ async def on_print_start(printer_id: int, data: dict, printer_manager) -> None:
 
     print_name = data.get("subtask_name", "") or data.get("filename", "unknown")
 
+    # Capture tray_now at print start (reliable, unlike at completion where it's 255)
+    tray_now_at_start = state.tray_now if state else -1
+
     # Always create session (even without valid remain data) so print_name
     # is available at completion for 3MF-based tracking
     session = PrintSession(
@@ -65,8 +70,10 @@ async def on_print_start(printer_id: int, data: dict, printer_manager) -> None:
         print_name=print_name,
         started_at=datetime.now(timezone.utc),
         tray_remain_start=tray_remain_start,
+        tray_now_at_start=tray_now_at_start,
     )
     _active_sessions[printer_id] = session
+    logger.info("[UsageTracker] Captured tray_now=%d at print start for printer %d", tray_now_at_start, printer_id)
 
     if tray_remain_start:
         logger.info(
@@ -85,6 +92,7 @@ async def on_print_complete(
     printer_manager,
     db: AsyncSession,
     archive_id: int | None = None,
+    ams_mapping: list[int] | None = None,
 ) -> list[dict]:
     """Compute consumption deltas and update spool weight_used/last_used.
 
@@ -99,13 +107,29 @@ async def on_print_complete(
     results = []
     handled_trays: set[tuple[int, int]] = set()
 
+    logger.info(
+        "[UsageTracker] on_print_complete: printer=%d, archive=%s, session=%s, ams_mapping=%s",
+        printer_id,
+        archive_id,
+        "yes" if session else "no",
+        ams_mapping,
+    )
+
     # --- Path 1 (PRIMARY): 3MF per-filament estimates ---
     if archive_id:
         print_name = (
             (session.print_name if session else None) or data.get("subtask_name", "") or data.get("filename", "unknown")
         )
         threemf_results = await _track_from_3mf(
-            printer_id, archive_id, status, print_name, handled_trays, printer_manager, db
+            printer_id,
+            archive_id,
+            status,
+            print_name,
+            handled_trays,
+            printer_manager,
+            db,
+            ams_mapping=ams_mapping,
+            tray_now_at_start=session.tray_now_at_start if session else -1,
         )
         results.extend(threemf_results)
 
@@ -213,6 +237,8 @@ async def _track_from_3mf(
     handled_trays: set[tuple[int, int]],
     printer_manager,
     db: AsyncSession,
+    ams_mapping: list[int] | None = None,
+    tray_now_at_start: int = -1,
 ) -> list[dict]:
     """Track usage from 3MF per-filament slicer data (primary path).
 
@@ -221,9 +247,10 @@ async def _track_from_3mf(
     then falls back to linear scaling by progress.
 
     Slot-to-tray mapping priority:
-    1. Queue item ams_mapping (for queue-initiated prints)
-    2. tray_now from printer state (for single-filament non-queue prints)
-    3. Default mapping: slot_id - 1 = global_tray_id (last resort)
+    1. Stored ams_mapping from print command (reprints/direct prints)
+    2. Queue item ams_mapping (for queue-initiated prints)
+    3. tray_now from printer state (for single-filament non-queue prints)
+    4. Default mapping: slot_id - 1 = global_tray_id (last resort)
     """
     from backend.app.core.config import settings as app_settings
     from backend.app.models.archive import PrintArchive
@@ -233,43 +260,76 @@ async def _track_from_3mf(
     result = await db.execute(select(PrintArchive).where(PrintArchive.id == archive_id))
     archive = result.scalar_one_or_none()
     if not archive or not archive.file_path:
+        logger.info("[UsageTracker] 3MF: archive %s has no file_path, skipping", archive_id)
         return []
 
     file_path = app_settings.base_dir / archive.file_path
     if not file_path.exists():
+        logger.info("[UsageTracker] 3MF: file not found: %s", file_path)
         return []
 
     filament_usage = extract_filament_usage_from_3mf(file_path)
     if not filament_usage:
+        logger.info("[UsageTracker] 3MF: no filament usage data in %s", file_path)
         return []
 
-    # --- Resolve slot-to-tray mapping ---
-    # 1. Try queue item ams_mapping (queue-initiated prints store the exact mapping)
-    slot_to_tray = None
-    queue_result = await db.execute(
-        select(PrintQueueItem)
-        .where(PrintQueueItem.archive_id == archive_id)
-        .where(PrintQueueItem.status.in_(["printing", "completed", "failed"]))
-    )
-    queue_item = queue_result.scalar_one_or_none()
-    if queue_item and queue_item.ams_mapping:
-        try:
-            slot_to_tray = json.loads(queue_item.ams_mapping)
-        except (json.JSONDecodeError, TypeError):
-            pass
+    logger.info("[UsageTracker] 3MF: archive %s, filament_usage=%s", archive_id, filament_usage)
 
-    # 2. For single-filament non-queue prints, use tray_now from printer state
+    # --- Resolve slot-to-tray mapping ---
+    # 1. Use stored ams_mapping from the print command (reprints/direct prints)
+    slot_to_tray = ams_mapping
+
+    # 2. Try queue item ams_mapping (queue-initiated prints store the exact mapping)
+    if not slot_to_tray:
+        queue_result = await db.execute(
+            select(PrintQueueItem)
+            .where(PrintQueueItem.archive_id == archive_id)
+            .where(PrintQueueItem.status.in_(["printing", "completed", "failed"]))
+        )
+        queue_item = queue_result.scalar_one_or_none()
+        if queue_item and queue_item.ams_mapping:
+            try:
+                slot_to_tray = json.loads(queue_item.ams_mapping)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    logger.info(
+        "[UsageTracker] 3MF: slot_to_tray=%s (source: %s)",
+        slot_to_tray,
+        "print_cmd" if ams_mapping else ("queue" if slot_to_tray else "none"),
+    )
+
+    # 3. For single-filament non-queue prints, use tray_now from printer state
+    #    Priority: tray_now_at_start > current tray_now > last_loaded_tray > vt_tray check
     nonzero_slots = [u for u in filament_usage if u.get("used_g", 0) > 0]
     tray_now_override: int | None = None
     if not slot_to_tray and len(nonzero_slots) == 1:
         state = printer_manager.get_status(printer_id)
-        if state and 0 <= state.tray_now <= 254:
+        # Try tray_now_at_start first (captured at print start)
+        if 0 <= tray_now_at_start <= 254:
+            tray_now_override = tray_now_at_start
+            logger.info("[UsageTracker] 3MF: using tray_now_at_start=%d (single-filament fallback)", tray_now_at_start)
+        elif state and 0 <= state.tray_now <= 254:
+            # Current state is valid (printer didn't retract yet)
             tray_now_override = state.tray_now
+            logger.info("[UsageTracker] 3MF: using current tray_now=%d", state.tray_now)
+        elif state and 0 <= state.last_loaded_tray <= 253:
+            # Last valid tray before retract (H2D retracts before completion callback)
+            tray_now_override = state.last_loaded_tray
+            logger.info("[UsageTracker] 3MF: using last_loaded_tray=%d (post-retract fallback)", state.last_loaded_tray)
         elif state and state.tray_now == 255:
             # 255 = "no filament" on legacy printers, but valid 2nd external spool on H2-series
             vt_tray = state.raw_data.get("vt_tray") or []
             if any(int(vt.get("id", 0)) == 255 for vt in vt_tray if isinstance(vt, dict)):
                 tray_now_override = state.tray_now
+                logger.info("[UsageTracker] 3MF: using tray_now=255 (H2-series external spool)")
+        if tray_now_override is None:
+            logger.info(
+                "[UsageTracker] 3MF: no valid tray_now (at_start=%d, current=%s, last_loaded=%s)",
+                tray_now_at_start,
+                state.tray_now if state else "N/A",
+                state.last_loaded_tray if state else "N/A",
+            )
 
     # Scale factor for partial prints (failed/aborted)
     if status == "completed":
@@ -338,6 +398,16 @@ async def _track_from_3mf(
             ams_id = global_tray_id // 4
             tray_id = global_tray_id % 4
 
+        logger.info(
+            "[UsageTracker] 3MF: slot_id=%d -> global_tray=%d -> AMS%d-T%d (used_g=%.1f, tray_now_override=%s)",
+            slot_id,
+            global_tray_id,
+            ams_id,
+            tray_id,
+            used_g,
+            tray_now_override,
+        )
+
         key = (ams_id, tray_id)
         if key in handled_trays:
             continue
@@ -352,6 +422,7 @@ async def _track_from_3mf(
         )
         assignment = assign_result.scalar_one_or_none()
         if not assignment:
+            logger.info("[UsageTracker] 3MF: no spool assignment at printer %d AMS%d-T%d", printer_id, ams_id, tray_id)
             continue
 
         # Load spool
@@ -401,6 +472,8 @@ async def _track_from_3mf(
         # Determine mapping source for debug logging
         if tray_now_override is not None:
             map_src = ", tray_now"
+        elif slot_to_tray and ams_mapping:
+            map_src = ", print_cmd_map"
         elif slot_to_tray:
             map_src = ", queue_map"
         else:
