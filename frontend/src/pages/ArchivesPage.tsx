@@ -739,7 +739,7 @@ function ArchiveCard({
           }}
           title={t('archives.card.preview3d')}
         >
-          <Box className="w-4 h-4 text-white" />
+          <Layers className="w-4 h-4 text-white" />
         </button>
         {/* Timelapse badge */}
         {archive.timelapse_path && (
