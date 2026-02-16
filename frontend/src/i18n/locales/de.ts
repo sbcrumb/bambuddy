@@ -1603,6 +1603,9 @@ export default {
     noErrors: 'Keine Fehler',
     viewOnWiki: 'Im Bambu Lab Wiki ansehen',
     clearInstructions: 'Löschen Sie die Fehler am Drucker, um sie hier zu entfernen.',
+    clearErrors: 'Fehler löschen',
+    clearSuccess: 'HMS-Fehler gelöscht',
+    clearFailed: 'HMS-Fehler konnten nicht gelöscht werden',
   },
 
   // MQTT Debug modal

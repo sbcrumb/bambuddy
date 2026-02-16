@@ -2941,6 +2941,9 @@ export default {
     noErrors: 'エラーなし',
     viewOnWiki: 'Bambu Lab Wikiで表示',
     clearInstructions: 'プリンターでエラーをクリアするとここからも消えます。',
+    clearErrors: 'エラーをクリア',
+    clearSuccess: 'HMSエラーをクリアしました',
+    clearFailed: 'HMSエラーのクリアに失敗しました',
   },
   plateAlert: {
     title: '印刷が一時停止されました！',

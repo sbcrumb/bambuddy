@@ -1599,6 +1599,9 @@ export default {
     noErrors: 'Aucune erreur',
     viewOnWiki: 'Voir sur le Wiki Bambu Lab',
     clearInstructions: 'Effacez les erreurs sur l\'imprimante pour les retirer ici.',
+    clearErrors: 'Effacer les erreurs',
+    clearSuccess: 'Erreurs HMS effacées',
+    clearFailed: 'Échec de l\'effacement des erreurs HMS',
   },
 
   // MQTT Debug modal
