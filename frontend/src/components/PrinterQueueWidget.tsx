@@ -10,6 +10,7 @@ import { formatRelativeTime } from '../utils/date';
 interface PrinterQueueWidgetProps {
   printerId: number;
   printerState?: string | null;
+  plateCleared?: boolean;
 }
 
 export function PrinterQueueWidget({ printerId, printerState }: PrinterQueueWidgetProps) {
@@ -42,7 +43,7 @@ export function PrinterQueueWidget({ printerId, printerState }: PrinterQueueWidg
     return null;
   }
 
-  const needsClearPlate = printerState === 'FINISH' || printerState === 'FAILED';
+  const needsClearPlate = (printerState === 'FINISH' || printerState === 'FAILED') && !plateCleared;
 
   if (needsClearPlate) {
     return (
