@@ -858,3 +858,350 @@ class TestNozzleRackData:
         assert mqtt_client.state.nozzles[0].nozzle_diameter == "0.4"
         assert mqtt_client.state.nozzles[1].nozzle_type == "HH01"
         assert mqtt_client.state.nozzles[1].nozzle_diameter == "0.6"
+
+
+class TestRequestTopicFailSafe:
+    """Tests for graceful degradation when broker rejects request topic subscription."""
+
+    @pytest.fixture
+    def mqtt_client(self):
+        from backend.app.services.bambu_mqtt import BambuMQTTClient
+
+        client = BambuMQTTClient(
+            ip_address="192.168.1.100",
+            serial_number="TEST123",
+            access_code="12345678",
+        )
+        return client
+
+    def test_request_topic_supported_by_default(self, mqtt_client):
+        """Request topic subscription is attempted by default."""
+        assert mqtt_client._request_topic_supported is True
+        assert mqtt_client._request_topic_confirmed is False
+
+    def test_on_subscribe_confirms_success(self, mqtt_client):
+        """Successful SUBACK marks request topic as confirmed."""
+        from paho.mqtt.reasoncodes import ReasonCode
+
+        mqtt_client._request_topic_sub_mid = 42
+        rc = ReasonCode(9, identifier=0)  # SUBACK packetType=9, QoS 0 = success
+        mqtt_client._on_subscribe(None, None, 42, [rc], None)
+
+        assert mqtt_client._request_topic_confirmed is True
+        assert mqtt_client._request_topic_supported is True
+        assert mqtt_client._request_topic_sub_mid is None
+        assert mqtt_client._request_topic_sub_time == 0.0
+
+    def test_on_subscribe_detects_rejection(self, mqtt_client):
+        """SUBACK with failure code disables request topic."""
+        from paho.mqtt.reasoncodes import ReasonCode
+
+        mqtt_client._request_topic_sub_mid = 42
+        rc = ReasonCode(9, identifier=0x80)  # SUBACK packetType=9, 0x80 = failure
+        mqtt_client._on_subscribe(None, None, 42, [rc], None)
+
+        assert mqtt_client._request_topic_supported is False
+        assert mqtt_client._request_topic_confirmed is False
+
+    def test_on_subscribe_ignores_other_mids(self, mqtt_client):
+        """SUBACK for other subscriptions (e.g. report topic) is ignored."""
+        from paho.mqtt.reasoncodes import ReasonCode
+
+        mqtt_client._request_topic_sub_mid = 42
+        rc = ReasonCode(9, identifier=0x80)
+        mqtt_client._on_subscribe(None, None, 99, [rc], None)
+
+        # Not affected — mid doesn't match
+        assert mqtt_client._request_topic_supported is True
+
+    def test_disconnect_after_subscription_disables_topic(self, mqtt_client):
+        """Disconnect within 10s of subscription attempt disables request topic."""
+        import time
+
+        mqtt_client._request_topic_sub_time = time.time()
+        mqtt_client._request_topic_confirmed = False
+        mqtt_client._last_message_time = 0.0
+
+        mqtt_client._on_disconnect(None, None)
+
+        assert mqtt_client._request_topic_supported is False
+        assert mqtt_client._request_topic_sub_time == 0.0
+
+    def test_disconnect_after_confirmation_does_not_disable(self, mqtt_client):
+        """Disconnect after SUBACK confirmation keeps request topic enabled."""
+        import time
+
+        mqtt_client._request_topic_sub_time = time.time()
+        mqtt_client._request_topic_confirmed = True
+        mqtt_client._last_message_time = 0.0
+
+        mqtt_client._on_disconnect(None, None)
+
+        assert mqtt_client._request_topic_supported is True
+
+    def test_late_disconnect_does_not_disable(self, mqtt_client):
+        """Disconnect long after subscription (>10s) doesn't blame request topic."""
+        import time
+
+        mqtt_client._request_topic_sub_time = time.time() - 30.0
+        mqtt_client._request_topic_confirmed = False
+        mqtt_client._last_message_time = 0.0
+
+        mqtt_client._on_disconnect(None, None)
+
+        assert mqtt_client._request_topic_supported is True
+
+    def test_on_connect_skips_request_topic_when_unsupported(self, mqtt_client):
+        """After marking unsupported, reconnect skips request topic subscription."""
+        mqtt_client._request_topic_supported = False
+
+        subscribe_calls = []
+        mock_client = type(
+            "MockClient",
+            (),
+            {
+                "subscribe": lambda self, topic: subscribe_calls.append(topic) or (0, 1),
+            },
+        )()
+
+        mqtt_client._on_connect(mock_client, None, None, 0)
+
+        # Only report topic subscribed, not request topic
+        assert len(subscribe_calls) == 1
+        assert subscribe_calls[0] == mqtt_client.topic_subscribe
+
+
+class TestRequestTopicAmsMapping:
+    """Tests for capturing ams_mapping from the MQTT request topic."""
+
+    @pytest.fixture
+    def mqtt_client(self):
+        """Create a BambuMQTTClient instance for testing."""
+        from backend.app.services.bambu_mqtt import BambuMQTTClient
+
+        client = BambuMQTTClient(
+            ip_address="192.168.1.100",
+            serial_number="TEST123",
+            access_code="12345678",
+        )
+        return client
+
+    def test_captured_ams_mapping_initializes_to_none(self, mqtt_client):
+        """Verify _captured_ams_mapping starts as None."""
+        assert mqtt_client._captured_ams_mapping is None
+
+    def test_handle_request_message_captures_ams_mapping(self, mqtt_client):
+        """project_file command with ams_mapping stores the mapping."""
+        data = {
+            "print": {
+                "command": "project_file",
+                "ams_mapping": [0, 4, -1, -1],
+                "url": "ftp://192.168.1.100/test.3mf",
+            }
+        }
+        mqtt_client._handle_request_message(data)
+        assert mqtt_client._captured_ams_mapping == [0, 4, -1, -1]
+
+    def test_handle_request_message_ignores_non_print_commands(self, mqtt_client):
+        """Non-project_file commands don't store ams_mapping."""
+        data = {
+            "print": {
+                "command": "pause",
+            }
+        }
+        mqtt_client._handle_request_message(data)
+        assert mqtt_client._captured_ams_mapping is None
+
+    def test_handle_request_message_ignores_missing_ams_mapping(self, mqtt_client):
+        """project_file command without ams_mapping doesn't store anything."""
+        data = {
+            "print": {
+                "command": "project_file",
+                "url": "ftp://192.168.1.100/test.3mf",
+            }
+        }
+        mqtt_client._handle_request_message(data)
+        assert mqtt_client._captured_ams_mapping is None
+
+    def test_handle_request_message_ignores_non_dict_print(self, mqtt_client):
+        """Non-dict print value is safely ignored."""
+        data = {"print": "not_a_dict"}
+        mqtt_client._handle_request_message(data)
+        assert mqtt_client._captured_ams_mapping is None
+
+    def test_handle_request_message_ignores_missing_print(self, mqtt_client):
+        """Message without print key is safely ignored."""
+        data = {"pushing": {"command": "pushall"}}
+        mqtt_client._handle_request_message(data)
+        assert mqtt_client._captured_ams_mapping is None
+
+    def test_captured_mapping_overwrites_previous(self, mqtt_client):
+        """A new print command overwrites a previously captured mapping."""
+        mqtt_client._captured_ams_mapping = [0, -1, -1, -1]
+        data = {
+            "print": {
+                "command": "project_file",
+                "ams_mapping": [4, 8, -1, -1],
+            }
+        }
+        mqtt_client._handle_request_message(data)
+        assert mqtt_client._captured_ams_mapping == [4, 8, -1, -1]
+
+    def test_print_start_callback_includes_ams_mapping(self, mqtt_client):
+        """on_print_start callback data includes captured ams_mapping."""
+        start_data = {}
+
+        def on_start(data):
+            start_data.update(data)
+
+        mqtt_client.on_print_start = on_start
+        mqtt_client._captured_ams_mapping = [0, 4, -1, -1]
+
+        # Trigger print start
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "RUNNING",
+                    "gcode_file": "/data/Metadata/test.gcode",
+                    "subtask_name": "Test",
+                }
+            }
+        )
+
+        assert start_data.get("ams_mapping") == [0, 4, -1, -1]
+
+    def test_print_start_callback_ams_mapping_none_when_not_captured(self, mqtt_client):
+        """on_print_start callback has ams_mapping=None when no mapping captured."""
+        start_data = {}
+
+        def on_start(data):
+            start_data.update(data)
+
+        mqtt_client.on_print_start = on_start
+
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "RUNNING",
+                    "gcode_file": "/data/Metadata/test.gcode",
+                    "subtask_name": "Test",
+                }
+            }
+        )
+
+        assert "ams_mapping" in start_data
+        assert start_data["ams_mapping"] is None
+
+    def test_print_complete_callback_includes_ams_mapping(self, mqtt_client):
+        """on_print_complete callback data includes captured ams_mapping."""
+        complete_data = {}
+
+        def on_complete(data):
+            complete_data.update(data)
+
+        mqtt_client.on_print_start = lambda d: None
+        mqtt_client.on_print_complete = on_complete
+        mqtt_client._captured_ams_mapping = [0, 9, -1, -1]
+
+        # Start print
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "RUNNING",
+                    "gcode_file": "/data/Metadata/test.gcode",
+                    "subtask_name": "Test",
+                }
+            }
+        )
+
+        # Complete print
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "FINISH",
+                    "gcode_file": "/data/Metadata/test.gcode",
+                    "subtask_name": "Test",
+                }
+            }
+        )
+
+        assert complete_data.get("ams_mapping") == [0, 9, -1, -1]
+
+    def test_captured_mapping_cleared_after_print_complete(self, mqtt_client):
+        """_captured_ams_mapping is reset to None after print completion."""
+        mqtt_client.on_print_start = lambda d: None
+        mqtt_client.on_print_complete = lambda d: None
+        mqtt_client._captured_ams_mapping = [0, 4, -1, -1]
+
+        # Start print
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "RUNNING",
+                    "gcode_file": "/data/Metadata/test.gcode",
+                    "subtask_name": "Test",
+                }
+            }
+        )
+
+        # Complete print
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "FINISH",
+                    "gcode_file": "/data/Metadata/test.gcode",
+                    "subtask_name": "Test",
+                }
+            }
+        )
+
+        assert mqtt_client._captured_ams_mapping is None
+
+    def test_full_flow_capture_and_deliver(self, mqtt_client):
+        """Full flow: slicer sends print command → MQTT captures mapping → completion delivers it."""
+        complete_data = {}
+
+        def on_complete(data):
+            complete_data.update(data)
+
+        mqtt_client.on_print_start = lambda d: None
+        mqtt_client.on_print_complete = on_complete
+
+        # 1. Slicer sends print command (captured from request topic)
+        mqtt_client._handle_request_message(
+            {
+                "print": {
+                    "command": "project_file",
+                    "ams_mapping": [4, 9, -1, -1],
+                    "url": "ftp://192.168.1.100/model.3mf",
+                }
+            }
+        )
+        assert mqtt_client._captured_ams_mapping == [4, 9, -1, -1]
+
+        # 2. Printer reports RUNNING
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "RUNNING",
+                    "gcode_file": "/data/Metadata/model.gcode",
+                    "subtask_name": "Model",
+                }
+            }
+        )
+
+        # 3. Printer reports FINISH
+        mqtt_client._process_message(
+            {
+                "print": {
+                    "gcode_state": "FINISH",
+                    "gcode_file": "/data/Metadata/model.gcode",
+                    "subtask_name": "Model",
+                }
+            }
+        )
+
+        assert complete_data["ams_mapping"] == [4, 9, -1, -1]
+        assert complete_data["status"] == "completed"
+        # Mapping cleared after completion
+        assert mqtt_client._captured_ams_mapping is None

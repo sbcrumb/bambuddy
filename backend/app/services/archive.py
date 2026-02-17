@@ -151,6 +151,27 @@ class ThreeMFParser:
                         self.metadata["_slice_filament_type"] = ", ".join(types)
                     if colors:
                         self.metadata["_slice_filament_color"] = ",".join(colors)
+
+                    # Collect per-slot filament usage for tracking & notifications
+                    filament_slots = []
+                    for f in filaments:
+                        slot_id = f.get("id")
+                        used_g_str = f.get("used_g", "0")
+                        try:
+                            used_g = float(used_g_str)
+                        except (ValueError, TypeError):
+                            used_g = 0
+                        if used_g > 0 and slot_id:
+                            filament_slots.append(
+                                {
+                                    "slot_id": int(slot_id),
+                                    "used_g": round(used_g, 2),
+                                    "type": f.get("type", ""),
+                                    "color": f.get("color", ""),
+                                }
+                            )
+                    if filament_slots:
+                        self.metadata["filament_slots"] = filament_slots
         except Exception:
             pass  # Skip unparseable slice_info metadata
 
@@ -706,10 +727,10 @@ class ArchiveService:
                 sha256.update(chunk)
         return sha256.hexdigest()
 
-    async def get_duplicate_hashes(self) -> set[str]:
-        """Get all content hashes that appear more than once.
+    async def get_duplicate_hashes_and_names(self) -> tuple[set[str], set[str]]:
+        """Get all content hashes and print names that appear more than once.
 
-        Returns a set of hashes that have duplicates.
+        Returns a tuple of (duplicate_hashes, duplicate_names).
         """
         from sqlalchemy import func
 
@@ -719,7 +740,17 @@ class ArchiveService:
             .group_by(PrintArchive.content_hash)
             .having(func.count(PrintArchive.id) > 1)
         )
-        return {row[0] for row in result.all()}
+        duplicate_hashes = {row[0] for row in result.all()}
+
+        result = await self.db.execute(
+            select(func.lower(PrintArchive.print_name))
+            .where(PrintArchive.print_name.isnot(None))
+            .group_by(func.lower(PrintArchive.print_name))
+            .having(func.count(PrintArchive.id) > 1)
+        )
+        duplicate_names = {row[0] for row in result.all()}
+
+        return duplicate_hashes, duplicate_names
 
     async def find_duplicates(
         self,
@@ -1026,8 +1057,9 @@ class ArchiveService:
         if not archive:
             return False
 
-        # Delete files - with CRITICAL safety checks to prevent accidental deletion
-        # of parent directories (e.g., /opt) if file_path is empty/malformed
+        # Resolve the directory to delete BEFORE committing the DB change
+        dir_to_delete: Path | None = None
+
         if archive.file_path and archive.file_path.strip():
             file_path = settings.base_dir / archive.file_path
             if file_path.exists():
@@ -1041,13 +1073,11 @@ class ArchiveService:
                         f"SECURITY: Refusing to delete archive {archive_id} - "
                         f"path {archive_dir} is outside archive directory {settings.archive_dir}"
                     )
-                    # Still delete the database record, just not the files
                     await self.db.delete(archive)
                     await self.db.commit()
                     return True
 
                 # Safety check 2: archive_dir must be at least 1 level deep inside archive_dir
-                # (should be archive_dir/uuid/file.3mf, so parent should be archive_dir/uuid)
                 try:
                     relative_path = archive_dir.resolve().relative_to(settings.archive_dir.resolve())
                     if len(relative_path.parts) < 1:
@@ -1061,16 +1091,22 @@ class ArchiveService:
                 except ValueError:
                     pass  # Already handled above
 
-                shutil.rmtree(archive_dir, ignore_errors=True)
+                dir_to_delete = archive_dir
         else:
             logger.error(
                 f"SECURITY: Refusing to delete files for archive {archive_id} - "
                 f"file_path is empty or invalid: '{archive.file_path}'"
             )
 
-        # Delete database record
+        # Delete database record FIRST — if the commit fails (e.g. database locked
+        # during concurrent bulk deletes), the files stay on disk and nothing is lost.
         await self.db.delete(archive)
         await self.db.commit()
+
+        # Only delete files AFTER the DB commit succeeds to avoid orphaned records
+        if dir_to_delete:
+            shutil.rmtree(dir_to_delete, ignore_errors=True)
+
         return True
 
     async def attach_timelapse(
@@ -1079,7 +1115,11 @@ class ArchiveService:
         timelapse_data: bytes,
         filename: str = "timelapse.mp4",
     ) -> bool:
-        """Attach a timelapse video to an archive."""
+        """Attach a timelapse video to an archive.
+
+        Non-MP4 videos (e.g. AVI from P1S) are saved as-is and a background
+        task converts them to MP4 for browser compatibility.
+        """
         import asyncio
 
         archive = await self.get_archive(archive_id)
@@ -1099,4 +1139,111 @@ class ArchiveService:
         archive.timelapse_path = str(timelapse_file.relative_to(settings.base_dir))
         await self.db.commit()
 
+        # For non-MP4 videos (e.g. AVI from P1S), kick off background conversion
+        if not filename.lower().endswith(".mp4"):
+            asyncio.create_task(
+                _convert_timelapse_to_mp4(archive_id, timelapse_file),
+                name=f"timelapse-convert-{archive_id}",
+            )
+
         return True
+
+
+async def _convert_timelapse_to_mp4(archive_id: int, source_path: Path) -> None:
+    """Background task: convert non-MP4 timelapse (e.g. AVI from P1S) to MP4.
+
+    Runs with low CPU priority (-threads 1, nice) so it doesn't starve
+    other processes on resource-constrained devices like Raspberry Pi.
+    """
+    import asyncio
+
+    from backend.app.core.database import async_session
+    from backend.app.services.camera import get_ffmpeg_path
+
+    logger = logging.getLogger(__name__)
+
+    ffmpeg = get_ffmpeg_path()
+    if not ffmpeg:
+        logger.info(
+            "FFmpeg not available, skipping timelapse conversion for archive %s (file saved as %s)",
+            archive_id,
+            source_path.suffix,
+        )
+        return
+
+    mp4_path = source_path.with_suffix(".mp4")
+
+    try:
+        cmd = [
+            ffmpeg,
+            "-y",
+            "-i",
+            str(source_path),
+            "-c:v",
+            "libx264",
+            "-preset",
+            "fast",
+            "-crf",
+            "23",
+            "-threads",
+            "1",
+            "-movflags",
+            "+faststart",
+            str(mp4_path),
+        ]
+
+        # Try with nice for lower CPU priority (standard on Linux/macOS)
+        try:
+            process = await asyncio.create_subprocess_exec(
+                "nice",
+                "-n",
+                "19",
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+        except FileNotFoundError:
+            # nice not available (e.g. Windows), run without
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+        _, stderr = await process.communicate()
+
+        if process.returncode != 0:
+            logger.warning(
+                "Timelapse conversion failed for archive %s: %s",
+                archive_id,
+                stderr.decode()[-500:],
+            )
+            if mp4_path.exists():
+                mp4_path.unlink()
+            return
+
+        # Update DB path to the new MP4 file
+        async with async_session() as db:
+            from backend.app.models.archive import PrintArchive
+
+            result = await db.execute(select(PrintArchive).where(PrintArchive.id == archive_id))
+            archive = result.scalar_one_or_none()
+            if archive:
+                archive.timelapse_path = str(mp4_path.relative_to(settings.base_dir))
+                await db.commit()
+
+        # Remove original non-MP4 file
+        if source_path.exists():
+            source_path.unlink()
+
+        logger.info(
+            "Converted timelapse to MP4 for archive %s (%s → %s)",
+            archive_id,
+            source_path.name,
+            mp4_path.name,
+        )
+
+    except Exception as e:
+        logger.warning("Timelapse conversion error for archive %s: %s", archive_id, e)
+        if mp4_path.exists():
+            mp4_path.unlink()

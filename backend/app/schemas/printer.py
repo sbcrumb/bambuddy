@@ -199,7 +199,7 @@ class PrinterStatus(BaseModel):
     hms_errors: list[HMSErrorResponse] = []
     ams: list[AMSUnit] = []
     ams_exists: bool = False
-    vt_tray: AMSTray | None = None  # Virtual tray / external spool
+    vt_tray: list[AMSTray] = []  # Virtual tray / external spool(s)
     sdcard: bool = False  # SD card inserted
     store_to_sdcard: bool = False  # Store sent files on SD card
     timelapse: bool = False  # Timelapse recording active
@@ -245,3 +245,5 @@ class PrinterStatus(BaseModel):
     heatbreak_fan_speed: int | None = None  # Hotend heatbreak fan
     # Firmware version (from info.module[name="ota"].sw_ver)
     firmware_version: str | None = None
+    # Queue: user has acknowledged plate is cleared for next queued print
+    plate_cleared: bool = False
