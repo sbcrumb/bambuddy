@@ -279,6 +279,8 @@ class BambuMQTTClient:
         self._was_running: bool = False  # Track if we've seen RUNNING state for current print
         self._completion_triggered: bool = False  # Prevent duplicate completion triggers
         self._timelapse_during_print: bool = False  # Track if timelapse was active during this print
+        self._last_valid_progress: float = 0.0  # Last non-zero progress (firmware resets on cancel)
+        self._last_valid_layer_num: int = 0  # Last non-zero layer (firmware resets on cancel)
         self._message_log: deque[MQTTLogEntry] = deque(maxlen=100)
         self._logging_enabled: bool = False
         self._last_message_time: float = 0.0  # Track when we last received a message
@@ -1211,6 +1213,9 @@ class BambuMQTTClient:
         if "subtask_id" in data:
             self.state.subtask_id = data["subtask_id"]
         if "mc_percent" in data:
+            # Save last non-zero progress for usage tracking (firmware resets to 0 on cancel)
+            if self.state.progress > 0:
+                self._last_valid_progress = self.state.progress
             self.state.progress = float(data["mc_percent"])
         if "mc_remaining_time" in data:
             self.state.remaining_time = int(data["mc_remaining_time"])
@@ -1225,6 +1230,9 @@ class BambuMQTTClient:
         if "layer_num" in data:
             new_layer = int(data["layer_num"])
             old_layer = self.state.layer_num
+            # Save last non-zero layer for usage tracking (firmware resets to 0 on cancel)
+            if old_layer > 0:
+                self._last_valid_layer_num = old_layer
             self.state.layer_num = new_layer
             # Trigger layer change callback if layer increased
             if new_layer > old_layer and self.on_layer_change:
@@ -1984,6 +1992,9 @@ class BambuMQTTClient:
             # Reset completion tracking for new print
             self._was_running = True
             self._completion_triggered = False
+            # Reset last valid progress/layer for usage tracking
+            self._last_valid_progress = 0.0
+            self._last_valid_layer_num = 0
             # Initialize timelapse tracking based on current state
             # NOTE: xcam data is parsed BEFORE this code runs in _process_message,
             # so self.state.timelapse may already be set from this message.
@@ -2067,6 +2078,9 @@ class BambuMQTTClient:
                     "timelapse_was_active": timelapse_was_active,
                     "hms_errors": hms_errors_data,
                     "ams_mapping": self._captured_ams_mapping,
+                    # Last valid progress/layer before firmware reset (for partial usage tracking)
+                    "last_progress": self._last_valid_progress,
+                    "last_layer_num": self._last_valid_layer_num,
                 }
             )
             self._captured_ams_mapping = None

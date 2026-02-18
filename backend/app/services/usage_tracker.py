@@ -167,6 +167,8 @@ async def on_print_complete(
             db,
             ams_mapping=ams_mapping,
             tray_now_at_start=session.tray_now_at_start if session else -1,
+            last_progress=data.get("last_progress", 0.0),
+            last_layer_num=data.get("last_layer_num", 0),
         )
         results.extend(threemf_results)
 
@@ -276,6 +278,8 @@ async def _track_from_3mf(
     db: AsyncSession,
     ams_mapping: list[int] | None = None,
     tray_now_at_start: int = -1,
+    last_progress: float = 0.0,
+    last_layer_num: int = 0,
 ) -> list[dict]:
     """Track usage from 3MF per-filament slicer data (primary path).
 
@@ -374,6 +378,10 @@ async def _track_from_3mf(
     else:
         state = printer_manager.get_status(printer_id)
         progress = state.progress if state else 0
+        # Firmware resets progress to 0 on cancel — use last valid progress captured during print
+        if progress <= 0 and last_progress > 0:
+            progress = last_progress
+            logger.info("[UsageTracker] 3MF: using last_progress=%.1f (firmware reset current to 0)", last_progress)
         scale = max(0.0, min(progress / 100.0, 1.0))
 
     # Per-layer gcode accuracy for partial prints
@@ -381,6 +389,10 @@ async def _track_from_3mf(
     if status != "completed":
         state = printer_manager.get_status(printer_id)
         current_layer = state.layer_num if state else 0
+        # Firmware resets layer_num to 0 on cancel — use last valid layer captured during print
+        if current_layer <= 0 and last_layer_num > 0:
+            current_layer = last_layer_num
+            logger.info("[UsageTracker] 3MF: using last_layer_num=%d (firmware reset current to 0)", last_layer_num)
         if current_layer > 0:
             try:
                 from backend.app.utils.threemf_tools import (
