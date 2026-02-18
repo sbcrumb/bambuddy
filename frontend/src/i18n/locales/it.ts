@@ -2397,8 +2397,10 @@ export default {
     externalSpool: 'Bobina esterna',
     profile: 'Profilo',
     kFactor: 'K Factor',
-    fill: 'Residuo',
+    fill: 'Livello',
     configure: 'Configura',
+    used: 'utilizzato',
+    remainingUnit: 'rimanente',
   },
 
   // Print modal
