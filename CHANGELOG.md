@@ -2,7 +2,7 @@
 
 All notable changes to Bambuddy will be documented in this file.
 
-## [0.2.1] - Not released
+## [0.2.1b] - Not released
 
 ### Fixed
 - **Nozzle Mapping Uses Wrong Source in 3MF Files** — The `extract_nozzle_mapping_from_3mf()` function used `filament_nozzle_map` (user preference) as the primary source for nozzle assignments. BambuStudio's "Auto For Flush" mode overrides user preferences at slice time, so the actual assignment lives in the `group_id` attribute on `<filament>` elements in `slice_info.config`. Now uses `group_id` as the primary source and falls back to `filament_nozzle_map` only when `group_id` is not present.
