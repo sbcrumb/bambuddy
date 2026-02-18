@@ -477,7 +477,11 @@ function SortableQueueItem({
             {isPending && !item.manual_start && (
               <span className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />
-                {item.scheduled_time ? formatRelativeTime(item.scheduled_time, timeFormat, t) : t?.('queue.time.asap') ?? 'ASAP'}
+                {item.scheduled_time
+                  ? (new Date(item.scheduled_time).getTime() - Date.now() < -60000
+                      ? t?.('queue.time.overdue') ?? 'Overdue'
+                      : formatRelativeTime(item.scheduled_time, timeFormat, t))
+                  : t?.('queue.time.asap') ?? 'ASAP'}
               </span>
             )}
           </div>

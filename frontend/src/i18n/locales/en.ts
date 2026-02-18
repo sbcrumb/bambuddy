@@ -3442,7 +3442,7 @@ export default {
   // Time
   time: {
     unknown: '-',
-    waiting:'Waiting',
+    waiting: 'Waiting',
     justNow: 'Just now',
     now: 'Now',
     minsAgo: '{{count}}m ago',
@@ -3450,6 +3450,6 @@ export default {
     hoursAgo: '{{count}}h ago',
     inHours: 'in {{count}}h',
     daysAgo: '{{count}}d ago',
-    inDays: '{{count}}d',
+    inDays: 'in {{count}}d',
   },
 };

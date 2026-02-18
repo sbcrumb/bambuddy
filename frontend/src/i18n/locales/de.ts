@@ -3437,7 +3437,7 @@ export default {
   // Time
   time: {
     unknown: '-',
-    waiting:'Wartend',
+    waiting: 'Wartend',
     justNow: 'Gerade eben',
     now: 'Jetzt',
     minsAgo: 'vor {{count}}m',

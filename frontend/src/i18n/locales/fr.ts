@@ -3430,7 +3430,7 @@ export default {
   // Time
   time: {
     unknown: '-',
-    waiting:'En attente',
+    waiting: 'En attente',
     justNow: 'À l\'instant',
     now: 'Maintenant',
     minsAgo: 'il y a {{count}}m',

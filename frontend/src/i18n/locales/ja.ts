@@ -3273,7 +3273,7 @@ export default {
   // Time
   time: {
     unknown: '-',
-    waiting:'待機中',
+    waiting: '待機中',
     justNow: 'たった今',
     now: '今すぐ',
     minsAgo: '{{count}}分前',

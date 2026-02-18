@@ -2818,9 +2818,9 @@ export default {
   // Time
   time: {
     unknown: '-',
-    waiting:'In attesa',
-    justNow: 'Adesso',
-    now: 'Proprio ora',
+    waiting: 'In attesa',
+    justNow: 'Proprio ora',
+    now: 'Ora',
     minsAgo: '{{count}}m fa',
     inMins: 'tra {{count}}m',
     hoursAgo: '{{count}}h fa',
