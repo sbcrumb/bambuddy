@@ -19,6 +19,7 @@ All notable changes to Bambuddy will be documented in this file.
 
 ### Improved
 - **AMS Mapping Test Coverage** — Added 63 backend tests for scheduler AMS mapping (nozzle filtering, external spool extruder assignment, fallback behavior) and 43 frontend tests for `useFilamentMapping` hook (nozzle-aware matching, AMS-HT handling, external spool extruder logic).
+- **Tray Now Disambiguation Test Coverage** — Added 28 MQTT message replay tests covering all `tray_now` disambiguation paths: single-nozzle passthrough (X1E/P2S), H2D dual-nozzle snow field, pending target, `ams_extruder_map` fallback, active extruder switching, and full multi-color print lifecycles.
 
 
 ## [0.2.0] - 2026-02-17
