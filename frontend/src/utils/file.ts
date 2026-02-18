@@ -1,4 +1,3 @@
-
 /**
  * Formats a byte count into a human-readable string (e.g. `1.5 MB`).
  *
