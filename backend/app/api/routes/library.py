@@ -1795,6 +1795,7 @@ async def print_library_file(
     archive = await archive_service.archive_print(
         printer_id=printer_id,
         source_file=file_path,
+        original_filename=lib_file.filename,
     )
 
     if not archive:
